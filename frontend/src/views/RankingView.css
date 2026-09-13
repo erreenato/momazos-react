@@ -1,0 +1,55 @@
+/* Estilos específicos para la vista de Ranking */
+.ranking-container {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  background-color: #1e1e1e;
+  border-radius: 12px;
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.ranking-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #333;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  color: #888;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-button.active {
+  color: #00ff88;
+  border-bottom: 2px solid #00ff88;
+  font-weight: bold;
+}
+
+.ranking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ranking-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem;
+  margin-bottom: 0.5rem;
+  background-color: #2a2a2a;
+  border-radius: 6px;
+}
+
+.ranking-position {
+  font-weight: bold;
+  color: #00ff88;
+  margin-right: 0.5rem;
+}
