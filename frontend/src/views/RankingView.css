@@ -1,12 +1,14 @@
 /* Estilos específicos para la vista de Ranking */
 .ranking-container {
-  max-width: 600px;
+  max-width: 850px;
+  width: 100%;
   margin: 2rem auto;
-  padding: 1.5rem;
+  padding: 1.5rem 2rem;
   background-color: #1e1e1e;
   border-radius: 12px;
   color: #fff;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
 }
 
 .ranking-tabs {
@@ -38,18 +40,68 @@
   margin: 0;
 }
 
+/* Filas individuales de la tabla */
 .ranking-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.8rem;
-  margin-bottom: 0.5rem;
   background-color: #2a2a2a;
-  border-radius: 6px;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin-top: 0.6rem;
+  transition: background 0.2s ease;
+}
+
+.ranking-item:hover {
+  background-color: #333333;
 }
 
 .ranking-position {
   font-weight: bold;
   color: #00ff88;
-  margin-right: 0.5rem;
+  text-align: center;
+}
+
+/* Definición de columnas alineadas */
+.meme-grid {
+  display: grid;
+  grid-template-columns: 70px 1fr 160px 100px;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-grid {
+  display: grid;
+  grid-template-columns: 70px 1fr 100px;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Cabecera de la tabla */
+.table-header {
+  padding: 0.8rem 1rem;
+  font-weight: bold;
+  color: #888;
+  border-bottom: 1px solid #333;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.table-header span:first-child {
+  text-align: center;
+}
+
+/* Celdas individuales */
+.author-name {
+  color: #aaa;
+  font-size: 0.95rem;
+}
+
+.table-header span:last-child,
+.score-cell {
+  text-align: right;
+}
+
+/* Cortar textos largos si el título del meme es muy extenso */
+.truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
