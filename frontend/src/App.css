@@ -182,3 +182,21 @@
     border-right-color: var(--border);
   }
 }
+
+body {
+  background-image: url('./public/mlg.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+}
+
+#root, .app-container {
+  max-width: 1000px;           
+  margin: 0 auto;              
+  background-color: #1b2431;   
+  min-height: 100vh;           
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.6); 
+}
