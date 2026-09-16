@@ -4,6 +4,7 @@ export interface User {
   role: 'user' | 'moderator';
   description?: string;
   score: number;
+  avatarUrl?: string;
 }
 
 export interface Meme {

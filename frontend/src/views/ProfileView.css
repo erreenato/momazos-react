@@ -1,0 +1,283 @@
+.profile-view {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ---------- Cabecera ---------- */
+.profile-header {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 28px;
+  background: var(--social-bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  flex-shrink: 0;
+}
+
+.profile-avatar-image {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.profile-username {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.profile-role {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.role-admin {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+}
+
+.role-user {
+  background: var(--code-bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.profile-description {
+  font-size: 16px;
+}
+
+/* ---------- Botones ---------- */
+.btn {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.btn:hover {
+  box-shadow: var(--shadow);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-edit {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-left: auto;
+}
+
+.btn-edit:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+/* ---------- Formulario de edición ---------- */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.field input,
+.field textarea {
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: 2px solid var(--accent-border);
+  border-color: var(--accent);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---------- Estadísticas ---------- */
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.profile-stat {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 16px;
+  text-align: center;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* ---------- Memes del usuario ---------- */
+.section-title {
+  font-size: 20px;
+  color: var(--text-h);
+  margin: 0 0 16px;
+}
+
+.memes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.meme-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease;
+}
+
+.meme-card:hover {
+  transform: translateY(-4px);
+}
+
+.meme-image {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.meme-body {
+  padding: 12px 14px;
+}
+
+.meme-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.status-approved {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.status-pending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.status-rejected {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.meme-title {
+  font-weight: 600;
+  color: var(--text-h);
+  margin: 8px 0 4px;
+}
+
+.meme-score,
+.meme-likes {
+  font-size: 14px;
+  color: var(--text);
+  margin: 2px 0;
+}
+
+.empty {
+  color: var(--text);
+  padding: 24px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
