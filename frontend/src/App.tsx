@@ -1,12 +1,28 @@
-import './App.css'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { NavSidebar } from './components/NavSidebar';
+import { WeeklyRanking } from './components/WeeklyRanking';
+import { mockMemes } from './mockData';
+import { MemeDetailView } from './views/MemeDetailView';
+import './App.css';
 
 function App() {
+  const firstMemeId = mockMemes[0]?.id ?? '';
+
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>Hola Mundo</h1>
-      <p>When haces tus momos en App.tsx.</p>
-    </div>
-  )
+    <BrowserRouter>
+      <div className="app-shell">
+        <NavSidebar />
+        <div className="app-content">
+          <Routes>
+            <Route path="/" element={<Navigate to={`/meme/${firstMemeId}`} replace />} />
+            <Route path="/meme/:id" element={<MemeDetailView />} />
+            <Route path="*" element={<Navigate to={`/meme/${firstMemeId}`} replace />} />
+          </Routes>
+        </div>
+        <WeeklyRanking memes={mockMemes} />
+      </div>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
