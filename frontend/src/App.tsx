@@ -1,12 +1,9 @@
 import './App.css'
 
+import { ProfileView } from './views/ProfileView'
+
 function App() {
-  return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <h1>Hola Mundo</h1>
-      <p>When haces tus momos en App.tsx.</p>
-    </div>
-  )
+  return <ProfileView />
 }
 
 export default App
