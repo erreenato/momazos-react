@@ -1,0 +1,92 @@
+.home-container {
+  padding: 1rem;
+}
+
+.home-title {
+  margin-bottom: 1rem;
+}
+
+.meme-grid {
+  display: flex;
+  flex-direction: column; 
+  gap: 1.5rem;            
+  max-width: 600px;       
+  margin: 0 auto;         
+}
+
+.meme-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #ffffff;
+}
+
+.meme-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.meme-image-button {
+  display: block; 
+  width: 100%;
+  height: 350px; 
+
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer; 
+
+  border-radius: 4px;
+  overflow: hidden; 
+
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.meme-title {
+  margin: 0.5rem 0;
+}
+
+.meme-author {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.meme-metrics {
+  display: flex;
+  justify-content: center; 
+  gap: 1.5rem;            
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.btn-metric {
+  background-color: #334155;
+  color: #cbd5e1;
+  border: 1px solid #475569;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-metric:hover {
+  background-color: #475569;
+  color: #ffffff;
+}
+
+.btn-like.active {
+  background-color: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.btn-dislike.active {
+  background-color: #0284c7;
+  color: #ffffff;
+  border-color: #0369a1;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.4);
+}
