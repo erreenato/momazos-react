@@ -1,0 +1,59 @@
+.moderation-view {
+    padding: 2rem;
+    text-align: left;
+}
+
+.moderation-header {
+    margin-bottom: 2rem;
+}
+
+.moderation-list {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.moderation-card {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.moderation-image {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.moderation-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.moderation-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.moderation-actions button {
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+}
+
+.moderation-message {
+    margin-bottom: 1rem;
+    padding: 0.8rem;
+    border-radius: 8px;
+    background: var(--accent-bg);
+}
+
+.empty-state {
+    padding: 2rem;
+    text-align: center;
+}
