@@ -1,24 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { flushSync } from 'react-dom';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
 import { mockComments, mockMemes, mockUsers } from '../mockData';
 import type { Comment, Meme, User } from '../types';
 import './MemeDetailView.css';
-
-type ViewTransitionDocument = Document & {
-  startViewTransition?: (callback: () => void) => void;
-};
-
-/** Tags an element so the browser's View Transitions API can morph it smoothly
- *  between its "featured" and "feed card" states when it changes size/position. */
-function useViewTransitionName(name: string) {
-  const ref = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    ref.current?.style.setProperty('view-transition-name', name);
-  }, [name]);
-  return ref;
-}
 
 const CURRENT_USER: User = mockUsers[0];
 
@@ -245,7 +231,15 @@ function CommentForm({
 }
 
 /** Pin-detail style layout for the meme the user actually opened: image on one side, actions + comments on the other. */
-function FeaturedMemeDetail({ meme, onShare }: { meme: Meme; onShare: (message: string) => void }) {
+export function FeaturedMemeDetail({
+  meme,
+  onShare,
+  onCollapse,
+}: {
+  meme: Meme;
+  onShare: (message: string) => void;
+  onCollapse: () => void;
+}) {
   const {
     vote,
     toggleVote,
@@ -263,9 +257,9 @@ function FeaturedMemeDetail({ meme, onShare }: { meme: Meme; onShare: (message: 
 
   return (
     <article className="meme-pin" ref={rootRef}>
-      <div className="meme-pin-media">
+      <button type="button" className="meme-pin-media" onClick={onCollapse} aria-label="Achicar momo">
         <img src={meme.imageUrl} alt={meme.title} />
-      </div>
+      </button>
 
       <div className="meme-pin-side">
         <div className="meme-pin-toolbar">
@@ -335,16 +329,8 @@ function FeaturedMemeDetail({ meme, onShare }: { meme: Meme; onShare: (message: 
   );
 }
 
-/** Simple single-column card used for the rest of the feed below the featured meme. */
-function MemeFeedCard({
-  meme,
-  onShare,
-  onSelect,
-}: {
-  meme: Meme;
-  onShare: (message: string) => void;
-  onSelect: (id: string) => void;
-}) {
+/** Plain feed card: click the image/title to grow it slightly in place and reveal comments. */
+function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string) => void }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const {
     vote,
@@ -378,10 +364,14 @@ function MemeFeedCard({
         )}
       </header>
 
-      <button type="button" className="meme-card-open" onClick={() => onSelect(meme.id)}>
+      <button
+        type="button"
+        className="meme-card-open"
+        onClick={() => setCommentsOpen((open) => !open)}
+      >
         <p className="meme-card-title">{meme.title}</p>
 
-        <div className="meme-card-media">
+        <div className={`meme-card-media ${commentsOpen ? 'open' : ''}`}>
           <img src={meme.imageUrl} alt={meme.title} loading="lazy" />
         </div>
       </button>
@@ -437,24 +427,39 @@ function MemeFeedCard({
   );
 }
 
-export function MemeDetailView() {
-  const { id } = useParams<{ id: string }>();
+/**
+ * A feed of meme cards where one meme (if any) can be "featured": shown big, Pinterest-pin
+ * style, with its comments open. Clicking another card's image grows it into that spot and
+ * shrinks the previous one back down; clicking the featured image shrinks it back to a card.
+ * Used both as the standalone `/meme/:id` page and embedded in the home feed.
+ */
+function MemeFeed({
+  memes = mockMemes,
+  initialFeaturedId = null,
+  syncUrl = false,
+}: {
+  memes?: Meme[];
+  initialFeaturedId?: string | null;
+  syncUrl?: boolean;
+}) {
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
 
-  const initialIndex = mockMemes.findIndex((m) => m.id === id);
+  const initialIndex = initialFeaturedId ? memes.findIndex((m) => m.id === initialFeaturedId) : -1;
   // Fixed once so the list doesn't reshuffle every time the featured meme changes.
   const [orderedMemes] = useState<Meme[]>(() =>
-    initialIndex < 0 ? [] : [...mockMemes.slice(initialIndex), ...mockMemes.slice(0, initialIndex)],
+    initialIndex < 0 ? memes : [...memes.slice(initialIndex), ...memes.slice(0, initialIndex)],
   );
-  const [featuredId, setFeaturedId] = useState(id);
-  // Keep in sync with the URL when it changes from outside selectMeme (e.g. a direct link
-  // or browser back/forward) — adjusted during render rather than an effect, per React's
+  const [featuredId, setFeaturedId] = useState<string | null>(initialFeaturedId ?? null);
+  // Keep in sync when the prop changes from outside our own clicks (e.g. a direct link or
+  // browser back/forward) — adjusted during render rather than an effect, per React's
   // guidance for state that mirrors a prop.
-  const [syncedRouteId, setSyncedRouteId] = useState(id);
-  if (id !== syncedRouteId) {
-    setSyncedRouteId(id);
-    if (id && orderedMemes.some((m) => m.id === id)) setFeaturedId(id);
+  const [syncedProp, setSyncedProp] = useState(initialFeaturedId ?? null);
+  if ((initialFeaturedId ?? null) !== syncedProp) {
+    setSyncedProp(initialFeaturedId ?? null);
+    if (initialFeaturedId && orderedMemes.some((m) => m.id === initialFeaturedId)) {
+      setFeaturedId(initialFeaturedId);
+    }
   }
 
   useEffect(() => {
@@ -463,19 +468,38 @@ export function MemeDetailView() {
     return () => clearTimeout(timeout);
   }, [toast]);
 
-  const selectMeme = (newId: string) => {
-    if (newId === featuredId) return;
-    const applyChange = () => setFeaturedId(newId);
-    const doc = document as ViewTransitionDocument;
-    if (doc.startViewTransition) {
-      doc.startViewTransition(() => flushSync(applyChange));
-    } else {
-      applyChange();
-    }
-    navigate(`/meme/${newId}`, { replace: true });
+  const applyFeatured = (newId: string | null) => {
+    withViewTransition(() => setFeaturedId(newId));
+    if (syncUrl) navigate(newId ? `/meme/${newId}` : '/', { replace: true });
   };
 
-  if (initialIndex < 0) {
+  const collapseMeme = () => applyFeatured(null);
+
+  return (
+    <div className="meme-feed">
+      {toast && <div className="meme-feed-toast">{toast}</div>}
+
+      {orderedMemes.map((meme) =>
+        meme.id === featuredId ? (
+          <FeaturedMemeDetail key={meme.id} meme={meme} onShare={setToast} onCollapse={collapseMeme} />
+        ) : (
+          <MemeFeedCard key={meme.id} meme={meme} onShare={setToast} />
+        ),
+      )}
+
+      <p className="meme-feed-end">Ya viste todos los momos disponibles 🎉</p>
+    </div>
+  );
+}
+
+export { MemeFeed };
+
+/** Standalone route for a shareable link to one specific meme (`/meme/:id`). */
+export function MemeDetailView() {
+  const { id } = useParams<{ id: string }>();
+  const exists = mockMemes.some((m) => m.id === id);
+
+  if (!exists) {
     return (
       <div className="meme-feed">
         <div className="meme-card meme-card-notfound">
@@ -489,19 +513,5 @@ export function MemeDetailView() {
     );
   }
 
-  return (
-    <div className="meme-feed">
-      {toast && <div className="meme-feed-toast">{toast}</div>}
-
-      {orderedMemes.map((meme) =>
-        meme.id === featuredId ? (
-          <FeaturedMemeDetail key={meme.id} meme={meme} onShare={setToast} />
-        ) : (
-          <MemeFeedCard key={meme.id} meme={meme} onShare={setToast} onSelect={selectMeme} />
-        ),
-      )}
-
-      <p className="meme-feed-end">Ya viste todos los momos disponibles 🎉</p>
-    </div>
-  );
+  return <MemeFeed initialFeaturedId={id ?? null} syncUrl />;
 }
