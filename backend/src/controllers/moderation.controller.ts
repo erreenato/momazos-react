@@ -47,7 +47,7 @@ export const updateMemeStatus = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  const meme = await Meme.findByIdAndUpdate(id, { status }, { new: true, runValidators: true })
+  const meme = await Meme.findByIdAndUpdate(id, { status }, { returnDocument: 'after', runValidators: true })
     .populate<{ author: IUser | null }>('author');
   if (!meme) {
     res.status(404).json({ error: 'Meme no encontrado' });
