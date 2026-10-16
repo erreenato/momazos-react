@@ -8,7 +8,6 @@ export type Role = IUser['role'];
 export interface AuthUser {
   id: string;
   role: Role;
-  csrfToken: string;
 }
 
 export interface JwtPayload {
@@ -25,9 +24,6 @@ declare global {
   }
 }
 
-// Métodos que no modifican estado: no necesitan validación CSRF.
-const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
-
 const isJwtPayload = (value: unknown): value is JwtPayload => {
   if (typeof value !== 'object' || value === null) return false;
   const payload = value as Record<string, unknown>;
@@ -39,9 +35,8 @@ const isJwtPayload = (value: unknown): value is JwtPayload => {
 };
 
 /**
- * Exige una sesión válida: JWT en la cookie httpOnly y, en métodos que modifican estado,
- * el header X-CSRF-Token igual al csrfToken guardado dentro del JWT.
- * Deja la sesión en `req.user`.
+ * Exige una sesión válida: JWT en la cookie httpOnly y el header X-CSRF-Token
+ * igual al csrfToken guardado dentro del JWT. Deja la sesión en `req.user`.
  */
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
   const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
@@ -65,12 +60,12 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
 
   // Un sitio externo puede hacer que el navegador mande la cookie, pero no puede leer
   // el csrfToken (vive en el localStorage de nuestro origen), así que no puede mandar este header.
-  if (!SAFE_METHODS.has(req.method) && req.get(CSRF_HEADER_NAME) !== payload.csrf) {
-    res.status(403).json({ error: 'Token CSRF inválido' });
+  if (req.get(CSRF_HEADER_NAME) !== payload.csrf) {
+    res.status(401).json({ error: 'Token CSRF inválido' });
     return;
   }
 
-  req.user = { id: payload.sub, role: payload.role, csrfToken: payload.csrf };
+  req.user = { id: payload.sub, role: payload.role };
   next();
 };
 
