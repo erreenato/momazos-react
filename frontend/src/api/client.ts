@@ -42,13 +42,19 @@ async function readErrorMessage(response: Response): Promise<string> {
   return `Error ${response.status}`;
 }
 
+export interface ApiResponse<T> {
+  data: T;
+  headers: Headers;
+}
+
 /**
  * Cliente compartido para hablar con el backend:
  * - `credentials: 'include'` para que el navegador mande la cookie httpOnly con el JWT.
  * - Header `X-CSRF-Token` con el token guardado en localStorage.
  * - Ante un 401 redirige a /login.
+ * Devuelve también los headers de la respuesta (el login entrega ahí el token CSRF).
  */
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
   const { method = 'GET', body, redirectOnUnauthorized = true } = options;
 
   const headers: Record<string, string> = {};
@@ -71,8 +77,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     throw new ApiError(response.status, await readErrorMessage(response));
   }
 
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
+  const data = response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+  return { data, headers: response.headers };
+}
+
+/** Igual que `apiRequest`, pero devuelve solo el body. */
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { data } = await apiRequest<T>(path, options);
+  return data;
 }
