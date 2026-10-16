@@ -103,7 +103,7 @@
   font: inherit;
   text-align: left;
   color: inherit;
-  cursor: pointer;
+  cursor: zoom-in;
 }
 
 .meme-card-title {
@@ -132,6 +132,9 @@
 }
 .meme-card-open:hover .meme-card-media img {
   transform: scale(1.02);
+}
+.meme-card-media.open img {
+  transform: scale(1.05);
 }
 
 .meme-card-actions {
@@ -341,6 +344,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: zoom-out;
+  transition: opacity 0.2s;
+}
+.meme-pin-media:hover {
+  opacity: 0.94;
 }
 .meme-pin-media img {
   width: 100%;
