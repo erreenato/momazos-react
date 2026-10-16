@@ -13,6 +13,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true, // Permitir envío de cookies httpOnly
+    exposedHeaders: ['X-CSRF-Token'], // Permitir que el frontend lea el token CSRF del login
   })
 );
 

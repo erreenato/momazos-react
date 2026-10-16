@@ -1,7 +1,7 @@
 import type { CookieOptions } from 'express';
 
 export const AUTH_COOKIE_NAME = 'token';
-export const CSRF_HEADER_NAME = 'x-csrf-token';
+export const CSRF_HEADER_NAME = 'X-CSRF-Token';
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
 const isProduction = process.env.NODE_ENV === 'production';

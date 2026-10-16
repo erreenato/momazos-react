@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import {
   AUTH_COOKIE_NAME,
+  CSRF_HEADER_NAME,
   SESSION_DURATION_MS,
   authCookieOptions,
   getJwtSecret,
@@ -19,16 +20,17 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const readString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
 
 /**
- * Crea la sesión: firma un JWT que incluye un csrfToken nuevo, lo deja en una cookie httpOnly
- * y devuelve el csrfToken (para el header X-CSRF-Token) junto a los datos públicos del usuario.
+ * Crea la sesión: firma un JWT que incluye un csrfToken nuevo y lo deja en una cookie httpOnly.
+ * El csrfToken viaja en el header de respuesta X-CSRF-Token y el body trae los datos públicos del usuario.
  */
 const startSession = (res: Response, user: IUser, status: number): void => {
   const csrfToken = randomBytes(32).toString('hex');
   const payload: JwtPayload = { sub: String(user._id), role: user.role, csrf: csrfToken };
   const token = jwt.sign(payload, getJwtSecret(), { expiresIn: SESSION_DURATION_MS / 1000 });
 
+  res.setHeader(CSRF_HEADER_NAME, csrfToken);
   res.cookie(AUTH_COOKIE_NAME, token, { ...authCookieOptions, maxAge: SESSION_DURATION_MS });
-  res.status(status).json({ user: toPublicUser(user), csrfToken });
+  res.status(status).json(toPublicUser(user));
 };
 
 // POST /api/auth/register
@@ -100,7 +102,5 @@ export const me = async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Se devuelve también el csrfToken de la sesión para que el frontend pueda recuperarlo
-  // si se borró su localStorage. Otro origen no puede leer esta respuesta (CORS).
-  res.json({ user: toPublicUser(user), csrfToken: req.user?.csrfToken });
+  res.json(toPublicUser(user));
 };
