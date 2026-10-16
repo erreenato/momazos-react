@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { mockMemes, mockUsers } from '../mockData';
+import './RankingView.css';
 
 export function RankingView() {
   const [tab, setTab] = useState<'memes' | 'users'>('memes');
