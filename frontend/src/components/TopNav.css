@@ -92,3 +92,35 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+img.top-nav-avatar {
+  object-fit: cover;
+}
+
+.top-nav-session {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-nav-login {
+  padding: 8px 16px;
+}
+
+.top-nav-logout {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.top-nav-logout:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
