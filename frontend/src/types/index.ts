@@ -17,6 +17,7 @@ export interface Meme {
   dislikes: number;
   score: number;
   createdAt?: string;
+  tags?: string[];
 }
 
 export interface Comment {
