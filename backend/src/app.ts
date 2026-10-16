@@ -1,6 +1,8 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import authRoutes from './routes/auth.routes.js';
+import moderationRoutes from './routes/moderation.routes.js';
 
 const app: Application = express();
 
@@ -18,5 +20,8 @@ app.use(
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'Servidor Express corriendo correctamente' });
 });
+
+app.use('/api/auth', authRoutes);
+app.use('/api', moderationRoutes);
 
 export default app;
