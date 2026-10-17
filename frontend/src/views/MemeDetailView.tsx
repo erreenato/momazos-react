@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
 import { mockComments, mockMemes, mockUsers } from '../mockData';
 import type { Comment, Meme, User } from '../types';
+import { reactToMeme } from '../api/meme';
 import './MemeDetailView.css';
 
 const CURRENT_USER: User = mockUsers[0];
@@ -148,11 +149,13 @@ function CommentThread({ comment }: { comment: Comment }) {
 
 function useMemeInteractions(meme: Meme) {
   const [vote, setVote] = useState<'like' | 'dislike' | null>(null);
+  const [likes, setLikes] = useState<number>(meme.likes);
+  const [dislikes, setDislikes] = useState<number>(meme.dislikes);
+  const [isReacting, setIsReacting] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
+
   const [newComment, setNewComment] = useState('');
   const [extraComments, setExtraComments] = useState<Comment[]>([]);
-
-  const likeCount = meme.likes + (vote === 'like' ? 1 : 0);
-  const dislikeCount = meme.dislikes + (vote === 'dislike' ? 1 : 0);
 
   const topLevelComments = [
     ...extraComments,
@@ -160,8 +163,25 @@ function useMemeInteractions(meme: Meme) {
   ];
   const totalComments = countAllComments(meme.id, extraComments);
 
-  const toggleVote = (type: 'like' | 'dislike') => {
-    setVote((current) => (current === type ? null : type));
+  const toggleVote = async (type: 'like' | 'dislike') => {
+    // El backend incrementa el contador en cada POST y no tiene operación de
+    // deshacer, por lo que no repetimos la misma reacción desde esta tarjeta.
+    if (isReacting || vote === type) return;
+
+    setIsReacting(true);
+    setReactionError(null);
+    try {
+      const response = await reactToMeme(meme.id, type);
+      setLikes(response.meme.likes);
+      setDislikes(response.meme.dislikes);
+      setVote(type);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'No se pudo registrar la reacción.';
+      console.error('Error al enviar reacción al backend:', err);
+      setReactionError(message);
+    } finally {
+      setIsReacting(false);
+    }
   };
 
   const handleAddComment = (event: FormEvent) => {
@@ -176,6 +196,7 @@ function useMemeInteractions(meme: Meme) {
       parentType: 'Meme',
       likes: 0,
       dislikes: 0,
+      score: 0,
       createdAt: new Date().toISOString(),
     };
     setExtraComments((prev) => [comment, ...prev]);
@@ -185,8 +206,10 @@ function useMemeInteractions(meme: Meme) {
   return {
     vote,
     toggleVote,
-    likeCount,
-    dislikeCount,
+    isReacting,
+    reactionError,
+    likeCount: likes,
+    dislikeCount: dislikes,
     topLevelComments,
     totalComments,
     newComment,
@@ -243,6 +266,8 @@ export function FeaturedMemeDetail({
   const {
     vote,
     toggleVote,
+    isReacting,
+    reactionError,
     likeCount,
     dislikeCount,
     topLevelComments,
@@ -268,6 +293,7 @@ export function FeaturedMemeDetail({
             className={`meme-pin-iconbtn ${vote === 'like' ? 'active-like' : ''}`}
             onClick={() => toggleVote('like')}
             aria-pressed={vote === 'like'}
+            disabled={isReacting}
             aria-label="Me gusta"
           >
             <ThumbUpIcon />
@@ -278,11 +304,13 @@ export function FeaturedMemeDetail({
             className={`meme-pin-iconbtn ${vote === 'dislike' ? 'active-dislike' : ''}`}
             onClick={() => toggleVote('dislike')}
             aria-pressed={vote === 'dislike'}
+            disabled={isReacting}
             aria-label="No me gusta"
           >
             <ThumbDownIcon />
             <span>{dislikeCount}</span>
           </button>
+          {reactionError && <span role="alert">{reactionError}</span>}
           <button type="button" className="meme-pin-iconbtn" aria-label="Más opciones">
             <MoreIcon />
           </button>
@@ -335,6 +363,8 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
   const {
     vote,
     toggleVote,
+    isReacting,
+    reactionError,
     likeCount,
     dislikeCount,
     topLevelComments,
@@ -383,6 +413,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
           className={`meme-pill like ${vote === 'like' ? 'active' : ''}`}
           onClick={() => toggleVote('like')}
           aria-pressed={vote === 'like'}
+          disabled={isReacting}
         >
           <ThumbUpIcon />
           {likeCount}
@@ -392,10 +423,12 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
           className={`meme-pill dislike ${vote === 'dislike' ? 'active' : ''}`}
           onClick={() => toggleVote('dislike')}
           aria-pressed={vote === 'dislike'}
+          disabled={isReacting}
         >
           <ThumbDownIcon />
           {dislikeCount}
         </button>
+        {reactionError && <span role="alert">{reactionError}</span>}
         <button
           type="button"
           className={`meme-pill ${commentsOpen ? 'active' : ''}`}

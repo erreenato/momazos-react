@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getApprovedMemes } from '../api/meme';
 import { MemeFeed } from './MemeDetailView';
+import type { Meme } from '../types';
 import './HomeViewStyle.css';
 
 export function HomeView() {
-  const [approvedMemes, setApprovedMemes] = useState<any[]>([]);
+  const [approvedMemes, setApprovedMemes] = useState<Meme[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {

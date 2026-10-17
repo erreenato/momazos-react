@@ -1,13 +1,34 @@
 import { apiFetch } from './client';
+import type { Meme } from '../types';
+
+export interface MemeReactionResponse {
+  message: string;
+  meme: {
+    id: string;
+    likes: number;
+    dislikes: number;
+    score: number;
+  };
+}
+
+interface ApiMeme extends Omit<Meme, 'id' | 'author'> {
+  _id: string;
+  author: string | { username: string };
+}
 
 // Obtener los memes aprobados
 export const getApprovedMemes = async () => {
-  return apiFetch<any[]>('/memes');
+  const memes = await apiFetch<ApiMeme[]>('/memes');
+  return memes.map(({ _id, author, ...meme }) => ({
+    ...meme,
+    id: _id,
+    author: typeof author === 'string' ? author : author.username,
+  }));
 };
 
 // Reaccionar a un meme (Like / Dislike)
 export const reactToMeme = async (memeId: string, type: 'like' | 'dislike') => {
-  return apiFetch<{ message: string; meme: any }>(`/memes/${memeId}/react`, {
+  return apiFetch<MemeReactionResponse>(`/memes/${memeId}/react`, {
     method: 'POST',
     body: { type },
   });

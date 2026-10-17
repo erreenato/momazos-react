@@ -180,6 +180,11 @@
 .meme-pill:active {
   transform: translateY(0);
 }
+.meme-pill:disabled,
+.meme-pin-iconbtn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
 
 .meme-pill.like.active {
   background: rgba(255, 92, 92, 0.14);
