@@ -38,3 +38,10 @@ export const getCommentsByMeme = async (memeId: string) => {
   const comments = await apiFetch<ApiComment[]>(`/comments/meme/${memeId}`);
   return comments.map(normalizeComment);
 };
+
+export const reactToCommentApi = async (commentId: string, type: 'like' | 'dislike') => {
+  return apiFetch<{ message: string; comment: any }>(`/comments/${commentId}/react`, {
+    method: 'POST',
+    body: { type },
+  });
+};

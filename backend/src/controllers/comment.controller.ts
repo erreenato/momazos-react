@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Comment } from '../models/Comment.js';
+import { Comment, CommentDocument } from '../models/Comment.js';
 import { Meme } from '../models/Meme.js';
 import { User } from '../models/User.js';
 
@@ -35,7 +35,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
     await newComment.save();
     await newComment.updateScore();
 
-    // 2. Disparar recálculo en el Meme raíz
+    // 2. Disparar recálculo en el Meme raíz (crear un comentario sí incrementa interacción del meme)
     const meme = await Meme.findById(targetMemeId);
     if (meme && typeof meme.updateScore === 'function') {
       await meme.updateScore();
@@ -55,7 +55,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// GET /api/memes/:memeId/comments
+// GET /api/comments/meme/:memeId
 export const getMemeComments = async (req: Request, res: Response): Promise<void> => {
   try {
     const { memeId } = req.params;
@@ -66,5 +66,40 @@ export const getMemeComments = async (req: Request, res: Response): Promise<void
     res.json(comments);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener comentarios.' });
+  }
+};
+
+// POST /api/comments/:id/react
+export const reactToComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { type } = req.body; // 'like' | 'dislike'
+
+    const comment = await Comment.findById(id) as CommentDocument | null;
+    if (!comment) {
+      res.status(404).json({ error: 'Comentario no encontrado.' });
+      return;
+    }
+
+    // 1. Incrementar reacción
+    if (type === 'like') {
+      comment.likes += 1;
+    } else if (type === 'dislike') {
+      comment.dislikes += 1;
+    }
+
+    // 2. Actualizar el score del propio comentario
+    await comment.updateScore();
+
+    // 3. Cascada: Actualizar ÚNICAMENTE al autor del comentario
+    const commentAuthor = await User.findById(comment.author);
+    if (commentAuthor && typeof commentAuthor.updateScore === 'function') {
+      await commentAuthor.updateScore();
+    }
+
+    res.json({ message: 'Reacción a comentario procesada', comment });
+  } catch (error) {
+    console.error('Error al reaccionar al comentario:', error);
+    res.status(500).json({ error: 'Error al procesar la reacción.' });
   }
 };
