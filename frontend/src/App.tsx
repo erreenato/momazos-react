@@ -3,7 +3,6 @@ import { AuthProvider } from './auth/AuthProvider';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { TopNav } from './components/TopNav';
 import { WeeklyRanking } from './components/WeeklyRanking';
-import { mockMemes } from './mockData';
 import { HomeView } from './views/HomeView';
 import { LoginView } from './views/LoginView';
 import { MemeDetailView } from './views/MemeDetailView';
@@ -41,7 +40,8 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
-            <WeeklyRanking memes={mockMemes} />
+            {/* Se pasa un array vacío temporalmente mientras se conecta el endpoint de ranking */}
+            <WeeklyRanking memes={[]} />
           </div>
         </div>
       </AuthProvider>

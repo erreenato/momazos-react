@@ -180,6 +180,11 @@
 .meme-pill:active {
   transform: translateY(0);
 }
+.meme-pill:disabled,
+.meme-pin-iconbtn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
 
 .meme-pill.like.active {
   background: rgba(255, 92, 92, 0.14);
@@ -277,6 +282,9 @@
   font-family: inherit;
 }
 .comment-actions button:hover { color: var(--accent); }
+.comment-actions button.active-like { color: #51cf66; }
+.comment-actions button.active-dislike { color: #ff6b6b; }
+.comment-actions button:disabled { cursor: wait; opacity: 0.55; }
 .comment-actions svg { width: 13px; height: 13px; }
 
 .comment-replies {
@@ -289,6 +297,23 @@
 .meme-comment-form {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+.meme-comment-replying {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.meme-comment-replying button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
 }
 .meme-comment-form input {
   flex: 1 1 auto;
