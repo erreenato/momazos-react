@@ -1,4 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { User } from './User.js';
+import { Comment } from './Comment.js';
 
 // 1. Interfaz de los métodos de la instancia
 export interface IMemeMethods {
@@ -38,20 +40,34 @@ const memeSchema = new Schema<IMeme, {}, IMemeMethods>(
   { timestamps: true }
 );
 
-// 4. Implementación de los métodos (sin Math.max para permitir negativos)
-memeSchema.methods.calculateScore = function (this: IMeme, totalComments: number = 0): number {
+memeSchema.methods.updateScore = async function(): Promise<number> {
+  // 1. Puntos base por likes y dislikes del meme
+  const baseScore = this.likes - this.dislikes;
 
-  const likesPonderation = 2; // Cada like suma 2 puntos
-  const dislikesPonderation = 1.5;
-  const commentsPonderation = 1; // Cada comentario suma 1 punto
+  // 2. Traer todos los comentarios pertenecientes a este meme
+  const comments = await Comment.find({ memeId: this._id });
 
+  // 3. Aplicar ponderación
+  let commentScore = 0;
+  for (const comment of comments) {
+    if (comment.parentType === 'Meme') {
+      commentScore += 3; // Comentario directo
+    } else {
+      commentScore += 1; // Respuesta anidada
+    }
+  }
 
-  const baseApproved = this.status === 'approved' ? 10 : 0;
-  const likesPoints =  this.status === 'approved' ? this.likes * likesPonderation : 0;
-  const dislikesPoints =  this.status === 'approved' ? this.dislikes * dislikesPonderation : 0;
-  const commentsPoints =  this.status === 'approved' ? totalComments * commentsPonderation : 0;
+  // 4. Guardar puntaje del meme
+  this.score = baseScore + commentScore;
+  await this.save();
 
-  return baseApproved + likesPoints - dislikesPoints + commentsPoints;
+  // 5. Cascada: Actualizar el score del autor del meme
+  const author = await User.findById(this.author);
+  if (author && typeof author.updateScore === 'function') {
+    await author.updateScore();
+  }
+
+  return this.score; // 👈 Retornamos el número para cumplir con Promise<number>
 };
 
 memeSchema.methods.updateScore = async function (this: IMeme, totalComments: number = 0): Promise<number> {

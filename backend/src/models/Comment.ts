@@ -1,39 +1,43 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document, Types, Model } from 'mongoose';
 
-// 1. Interfaz de los métodos de la instancia
+// 1. Interfaz de Propiedades / Datos
+export interface IComment extends Document {
+  content: string;
+  author: Types.ObjectId;
+  parentId: Types.ObjectId;
+  parentType: 'Meme' | 'Comment';
+  memeId: Types.ObjectId;
+  likes: number;
+  dislikes: number;
+  score: number;
+}
+
+// 2. Interfaz de Métodos de Instancia
 export interface ICommentMethods {
   calculateScore(): number;
   updateScore(): Promise<number>;
 }
 
-// 2. Interfaz principal combinando propiedades y métodos
-export interface IComment extends Document, ICommentMethods {
-  author: Types.ObjectId;
-  content: string;
-  parentId: Types.ObjectId;
-  parentType: 'Meme' | 'Comment';
-  likes: number;
-  dislikes: number;
-  score: number;
-  createdAt: Date;
-}
+// 3. Tipo del Documento Completo (Datos + Métodos)
+export type CommentDocument = IComment & ICommentMethods;
 
-// 3. Crear el esquema tipando los métodos en el 3er parámetro genérico
-const commentSchema = new Schema<IComment, {}, ICommentMethods>(
-  {
-    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    content: { type: String, required: true, trim: true },
-    parentId: { type: Schema.Types.ObjectId, required: true, refPath: 'parentType' },
-    parentType: { type: String, required: true, enum: ['Meme', 'Comment'] },
-    likes: { type: Number, default: 0 },
-    dislikes: { type: Number, default: 0 },
-    score: { type: Number, default: 1 }, // Inicia en 1 por la base de participación
-  },
-  { timestamps: true }
-);
+// 4. Tipo del Modelo
+export type CommentModel = Model<IComment, {}, ICommentMethods>;
 
-// 4. Método para CALCULAR el puntaje del comentario en memoria
-commentSchema.methods.calculateScore = function (this: IComment): number {
+// 5. Esquema con Generics
+const commentSchema = new Schema<IComment, CommentModel, ICommentMethods>({
+  content: { type: String, required: true },
+  author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  parentId: { type: Schema.Types.ObjectId, required: true },
+  parentType: { type: String, enum: ['Meme', 'Comment'], required: true },
+  memeId: { type: Schema.Types.ObjectId, ref: 'Meme', required: true },
+  likes: { type: Number, default: 0 },
+  dislikes: { type: Number, default: 0 },
+  score: { type: Number, default: 0 },
+}, { timestamps: true });
+
+// 6. Asignación de Métodos con tipado explícito de 'this'
+commentSchema.methods.calculateScore = function (this: CommentDocument): number {
   const baseComment = 1;
   const likesPoints = this.likes * 1;
   const dislikesPoints = this.dislikes * 1;
@@ -41,12 +45,12 @@ commentSchema.methods.calculateScore = function (this: IComment): number {
   return baseComment + likesPoints - dislikesPoints;
 };
 
-// 5. Método para ACTUALIZAR y GUARDAR el puntaje en MongoDB
-commentSchema.methods.updateScore = async function (this: IComment): Promise<number> {
+commentSchema.methods.updateScore = async function (this: CommentDocument): Promise<number> {
   const newScore = this.calculateScore();
   this.score = newScore;
   await this.save();
   return newScore;
 };
 
-export const Comment = model<IComment>('Comment', commentSchema);
+// 7. Exportación del Modelo estrictamente tipado
+export const Comment = model<IComment, CommentModel>('Comment', commentSchema);

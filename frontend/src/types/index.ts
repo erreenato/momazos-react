@@ -26,6 +26,7 @@ export interface Comment {
   content: string;
   parentId: string; // ID del Meme o de otro Comment
   parentType: 'Meme' | 'Comment';
+  memeId: string; // ID del Meme al que pertenece el comentario
   likes: number;
   dislikes: number;
   score: number; // <--- Nuevo campo
