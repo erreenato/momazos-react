@@ -20,6 +20,7 @@ function App() {
             <Routes>
               <Route path="/" element={<HomeView />} />
               <Route path="/perfil" element={<ProfileView />} />
+              <Route path="/perfil/:id" element={<ProfileView />} />
               <Route path="/subir" element={<SubirPost />} />
               <Route path="/moderacion" element={<ModerationView />} />
               <Route path="/ranking" element={<RankingView />} />
