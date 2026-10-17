@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { TopNav } from './components/TopNav';
 import { WeeklyRanking } from './components/WeeklyRanking';
-import { mockMemes } from './mockData';
+import { useMemes } from './memeStore';
 import { HomeView } from './views/HomeView';
 import { MemeDetailView } from './views/MemeDetailView';
 import { ModerationView } from './views/ModerationView';
@@ -11,6 +11,8 @@ import { SubirPost } from './views/SubirPost';
 import './App.css';
 
 function App() {
+  const memes = useMemes();
+
   return (
     <BrowserRouter>
       <div className="app-page">
@@ -28,7 +30,7 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>
-          <WeeklyRanking memes={mockMemes} />
+          <WeeklyRanking memes={memes} />
         </div>
       </div>
     </BrowserRouter>

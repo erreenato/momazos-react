@@ -1,8 +1,6 @@
 import { NavLink } from 'react-router-dom';
-import { mockUsers } from '../mockData';
+import { CURRENT_USER } from '../memeStore';
 import './TopNav.css';
-
-const CURRENT_USER = mockUsers[0];
 
 function HomeIcon() {
   return (

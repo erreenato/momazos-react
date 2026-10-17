@@ -1,21 +1,44 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
+import { publishMeme } from '../memeStore';
 import './SubirPost.css';
 
 export function SubirPost() {
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState<'url' | 'file'>('url');
   const [imageUrl, setImageUrl] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [fileKey, setFileKey] = useState(0); // permite vaciar el input de archivo
+  const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setFileName(event.target.files?.[0]?.name ?? '');
+    setFile(event.target.files?.[0] ?? null);
+    setError('');
   };
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim()) return;
+
+    // Con archivo se usa una URL temporal del navegador (solo vale mientras la
+    // página esté abierta); con el backend real se subirá el archivo al servidor.
+    const source =
+      mode === 'url' ? imageUrl.trim() : file ? URL.createObjectURL(file) : '';
+
+    if (!source) {
+      setError(mode === 'url' ? 'Ingresa la URL de la imagen.' : 'Elige una imagen para subir.');
+      return;
+    }
+
+    // El meme nace como "pendiente" y queda a la espera de un moderador.
+    publishMeme({ title: title.trim(), imageUrl: source });
+
+    setError('');
+    setTitle('');
+    setImageUrl('');
+    setFile(null);
+    setFileKey((key) => key + 1);
     setSubmitted(true);
   };
 
@@ -38,11 +61,25 @@ export function SubirPost() {
 
         <div className="subir-post-mode">
           <label>
-            <input type="radio" checked={mode === 'url'} onChange={() => setMode('url')} />
+            <input
+              type="radio"
+              checked={mode === 'url'}
+              onChange={() => {
+                setMode('url');
+                setError('');
+              }}
+            />
             Desde una URL
           </label>
           <label>
-            <input type="radio" checked={mode === 'file'} onChange={() => setMode('file')} />
+            <input
+              type="radio"
+              checked={mode === 'file'}
+              onChange={() => {
+                setMode('file');
+                setError('');
+              }}
+            />
             Desde mi computador
           </label>
         </div>
@@ -53,7 +90,10 @@ export function SubirPost() {
             <input
               id="subir-url"
               value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
+              onChange={(e) => {
+                setImageUrl(e.target.value);
+                setError('');
+              }}
               placeholder="https://..."
             />
             {imageUrl && (
@@ -65,10 +105,18 @@ export function SubirPost() {
         ) : (
           <>
             <label htmlFor="subir-archivo">Archivo</label>
-            <input id="subir-archivo" type="file" accept="image/*" onChange={handleFileChange} />
-            {fileName && <span className="subir-post-filename">{fileName}</span>}
+            <input
+              key={fileKey}
+              id="subir-archivo"
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+            />
+            {file && <span className="subir-post-filename">{file.name}</span>}
           </>
         )}
+
+        {error && <p className="subir-post-error">{error}</p>}
 
         <button type="submit">Publicar</button>
 

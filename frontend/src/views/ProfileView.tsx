@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { mockUsers } from '../mockData';
+import { CURRENT_USER } from '../memeStore';
 import {
   canViewPrivateMemes,
   getUserById,
   getUserMemes,
-} from '../services/profileService.ts';
+} from '../services/profileService';
 import type { User, Meme } from '../types';
 import './ProfileView.css';
 
@@ -23,7 +23,7 @@ interface ProfileData {
 
 export function ProfileView() {
   const { id } = useParams<{ id: string }>();
-  const viewer = mockUsers[0]; // usuario logueado simulado; reemplazar por la auth real
+  const viewer = CURRENT_USER;
   // Sin parámetro (/perfil) se muestra el perfil del usuario actual.
   const profileId = id ?? viewer.id;
 

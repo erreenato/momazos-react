@@ -8,7 +8,10 @@ function authorName(author: User | string): string {
 }
 
 export function WeeklyRanking({ memes }: { memes: Meme[] }) {
-  const ranked = [...memes].sort((a, b) => b.score - a.score).slice(0, 5);
+  const ranked = memes
+    .filter((meme) => meme.status === 'approved')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 
   return (
     <aside className="weekly-ranking" aria-label="Ranking semanal de memes">

@@ -498,3 +498,9 @@
   .meme-feed { padding: 16px 10px 48px; gap: 16px; }
   .meme-pill.share { margin-left: 0; }
 }
+a.meme-card-author {
+  text-decoration: none;
+}
+a.meme-card-author:hover {
+  color: var(--accent);
+}

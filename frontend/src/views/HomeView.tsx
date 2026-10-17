@@ -1,9 +1,9 @@
-import { mockMemes } from '../mockData';
+import { useMemes } from '../memeStore';
 import { MemeFeed } from './MemeDetailView';
 import './HomeViewStyle.css';
 
 export function HomeView() {
-  const approvedMemes = mockMemes.filter((meme) => meme.status === 'approved');
+  const approvedMemes = useMemes().filter((meme) => meme.status === 'approved');
 
   return (
     <div className="home-container">

@@ -1,12 +1,16 @@
 import { useState } from 'react';
-import { mockMemes, mockUsers } from '../mockData';
+import { mockUsers } from '../mockData';
+import { useMemes } from '../memeStore';
+import type { Meme } from '../types';
 import './RankingView.css';
 
 export function RankingView() {
   const [tab, setTab] = useState<'memes' | 'users'>('memes');
 
+  const memes = useMemes();
+
   // 1. Filtrar solo aprobados, ordenar de mayor a menor y tomar 10
-  const topMemes = [...mockMemes]
+  const topMemes = [...memes]
     .filter((meme) => meme.status === 'approved')
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
@@ -16,7 +20,7 @@ export function RankingView() {
     .slice(0, 10);
 
   // Helper para obtener el username de forma segura
-  const getAuthorName = (author: typeof mockMemes[0]['author']) => {
+  const getAuthorName = (author: Meme['author']) => {
     return typeof author === 'string' ? author : author.username;
   };
 

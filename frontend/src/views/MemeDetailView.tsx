@@ -2,16 +2,26 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
-import { mockComments, mockMemes, mockUsers } from '../mockData';
+import { mockComments } from '../mockData';
+import { CURRENT_USER, canSeeMeme, useMemes } from '../memeStore';
 import type { Comment, Meme, User } from '../types';
 import './MemeDetailView.css';
-
-const CURRENT_USER: User = mockUsers[0];
 
 const AVATAR_COLORS = ['#aa3bff', '#ff6b6b', '#4dabf7', '#51cf66', '#ffa94d', '#f783ac', '#20c997'];
 
 function authorName(author: User | string): string {
   return typeof author === 'string' ? author : author.username;
+}
+
+function AuthorName({ author }: { author: User | string }) {
+  if (typeof author === 'string') {
+    return <span className="meme-card-author">{author}</span>;
+  }
+  return (
+    <Link className="meme-card-author" to={`/perfil/${author.id}`}>
+      {author.username}
+    </Link>
+  );
 }
 
 function avatarColor(name: string): string {
@@ -306,7 +316,7 @@ export function FeaturedMemeDetail({
         <div className="meme-pin-author">
           <Avatar name={authorLabel} size={34} />
           <div className="meme-card-authorinfo">
-            <span className="meme-card-author">{authorLabel}</span>
+            <AuthorName author={meme.author} />
             <span className="meme-card-time">{timeAgo(meme.createdAt)}</span>
           </div>
         </div>
@@ -354,7 +364,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
       <header className="meme-card-header">
         <Avatar name={authorLabel} />
         <div className="meme-card-authorinfo">
-          <span className="meme-card-author">{authorLabel}</span>
+          <AuthorName author={meme.author} />
           <span className="meme-card-time">{timeAgo(meme.createdAt)}</span>
         </div>
         {meme.status !== 'approved' && (
@@ -434,7 +444,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
  * Used both as the standalone `/meme/:id` page and embedded in the home feed.
  */
 function MemeFeed({
-  memes = mockMemes,
+  memes: memesProp,
   initialFeaturedId = null,
   syncUrl = false,
 }: {
@@ -443,6 +453,9 @@ function MemeFeed({
   syncUrl?: boolean;
 }) {
   const navigate = useNavigate();
+  const storeMemes = useMemes();
+  // Sin lista explícita, solo se muestran los memes que el usuario actual puede ver.
+  const memes = memesProp ?? storeMemes.filter((meme) => canSeeMeme(CURRENT_USER, meme));
   const [toast, setToast] = useState<string | null>(null);
 
   const initialIndex = initialFeaturedId ? memes.findIndex((m) => m.id === initialFeaturedId) : -1;
@@ -497,7 +510,9 @@ export { MemeFeed };
 /** Standalone route for a shareable link to one specific meme (`/meme/:id`). */
 export function MemeDetailView() {
   const { id } = useParams<{ id: string }>();
-  const exists = mockMemes.some((m) => m.id === id);
+  const memes = useMemes();
+  // Los memes pendientes o rechazados solo los ven su autor o un moderador.
+  const exists = memes.some((m) => m.id === id && canSeeMeme(CURRENT_USER, m));
 
   if (!exists) {
     return (
@@ -505,7 +520,7 @@ export function MemeDetailView() {
         <div className="meme-card meme-card-notfound">
           <h2>Momo no encontrado</h2>
           <p>Puede que este meme haya sido eliminado o el enlace esté mal escrito.</p>
-          <Link className="meme-pill" to={`/meme/${mockMemes[0]?.id ?? ''}`}>
+          <Link className="meme-pill" to="/">
             Volver a Momazos
           </Link>
         </div>

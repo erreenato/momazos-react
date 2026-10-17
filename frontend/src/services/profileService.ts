@@ -1,3 +1,4 @@
+import { getMemes } from '../memeStore';
 import { mockMemes, mockUsers } from '../mockData';
 import type { Meme, User } from '../types';
 
@@ -21,15 +22,15 @@ export function canViewPrivateMemes(viewer: User | null, owner: User): boolean {
 export async function getUserById(id: string): Promise<User | null> {
   return mockUsers.find((user) => user.id === id) ?? null;
 }
-
+ 
 export async function getUserMemes(userId: string): Promise<Meme[]> {
   const owner = mockUsers.find((user) => user.id === userId);
   if (!owner) return [];
-
-  const memes = mockMemes.filter(
+ 
+  const memes = getMemes().filter(
     (meme) => typeof meme.author !== 'string' && meme.author.id === userId,
   );
-
+ 
   return canViewPrivateMemes(CURRENT_USER, owner)
     ? memes
     : memes.filter((meme) => meme.status === 'approved');
