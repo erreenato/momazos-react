@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getTopMemes, getTopUsers } from '../api/meme'; // Ajusta la ruta a tu API
+import { getTopMemes, getTopUsers } from '../api/meme';
+import type { Meme } from '../types';
+import type { RankingUser } from '../api/meme';
 import './RankingView.css';
 
 export function RankingView() {
   const [tab, setTab] = useState<'memes' | 'users'>('memes');
-  const [topMemes, setTopMemes] = useState<any[]>([]);
-  const [topUsers, setTopUsers] = useState<any[]>([]);
+  const [topMemes, setTopMemes] = useState<Meme[]>([]);
+  const [topUsers, setTopUsers] = useState<RankingUser[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([getTopMemes(), getTopUsers()])
       .then(([memesData, usersData]) => {
         setTopMemes(memesData);
@@ -20,7 +21,7 @@ export function RankingView() {
   }, []);
 
   // Helper para obtener el username de forma segura
-  const getAuthorName = (author: any) => {
+  const getAuthorName = (author: Meme['author']) => {
     if (!author) return 'Anónimo';
     if (typeof author === 'string') return author;
     return author.username ?? 'Anónimo';
@@ -66,7 +67,7 @@ export function RankingView() {
 
           <ul className="ranking-list">
             {topMemes.map((meme, index) => (
-              <li key={meme._id || meme.id} className="ranking-item meme-grid">
+              <li key={meme.id} className="ranking-item meme-grid">
                 <strong className="ranking-position">#{index + 1}</strong>
                 <span className="truncate">{meme.title}</span>
                 <span className="author-name">{getAuthorName(meme.author)}</span>
@@ -88,7 +89,7 @@ export function RankingView() {
 
           <ul className="ranking-list">
             {topUsers.map((user, index) => (
-              <li key={user._id || user.id} className="ranking-item user-grid">
+              <li key={user._id} className="ranking-item user-grid">
                 <strong className="ranking-position">#{index + 1}</strong>
                 <span>{user.username}</span>
                 <span className="score-cell">{user.score} pts</span>
