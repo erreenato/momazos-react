@@ -52,6 +52,20 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.weekly-ranking-item:hover {
+  background: var(--bg);
+}
+
+.weekly-ranking-empty {
+  font-size: 12.5px;
+  color: var(--text);
+  opacity: 0.75;
+  text-align: center;
+  padding: 10px 0;
 }
 
 .weekly-ranking-rank {

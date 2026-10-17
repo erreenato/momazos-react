@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "dev": "concurrently -n backend,frontend -c green,cyan \"npm run dev:backend:memory\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
+    "dev:backend:memory": "npm --prefix backend run dev:memory",
     "dev:frontend": "npm --prefix frontend run dev",
+    "seed": "npm --prefix backend run seed",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
     "build": "npm run build:frontend && npm run build:backend"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
   }
 }

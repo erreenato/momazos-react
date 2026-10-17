@@ -1,7 +1,28 @@
 import { Request, Response } from 'express';
+import { Types } from 'mongoose';
 import { Comment, CommentDocument } from '../models/Comment.js';
 import { Meme } from '../models/Meme.js';
 import { User } from '../models/User.js';
+
+type ReactionType = 'like' | 'dislike';
+
+/** Añade `myReaction` (el voto de quien consulta) sin exponer los votantes. */
+const serializeComment = (comment: CommentDocument, viewerId?: string) => {
+  const plain = comment.toObject() as Record<string, unknown>;
+  const likedBy = ((plain.likedBy as unknown[]) ?? []).map(String);
+  const dislikedBy = ((plain.dislikedBy as unknown[]) ?? []).map(String);
+
+  let myReaction: ReactionType | null = null;
+  if (viewerId) {
+    if (likedBy.includes(viewerId)) myReaction = 'like';
+    else if (dislikedBy.includes(viewerId)) myReaction = 'dislike';
+  }
+
+  delete plain.likedBy;
+  delete plain.dislikedBy;
+
+  return { ...plain, myReaction };
+};
 
 export const createComment = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -48,7 +69,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
     }
 
     const populated = await Comment.findById(newComment._id).populate('author', 'username avatarUrl');
-    res.status(201).json(populated);
+    res.status(201).json(serializeComment(populated as CommentDocument, userId));
   } catch (error) {
     console.error('Error al crear comentario:', error);
     res.status(500).json({ error: 'Error al publicar comentario.' });
@@ -59,11 +80,11 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
 export const getMemeComments = async (req: Request, res: Response): Promise<void> => {
   try {
     const { memeId } = req.params;
-    const comments = await Comment.find({ memeId })
+    const comments = (await Comment.find({ memeId })
       .populate('author', 'username avatarUrl')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })) as CommentDocument[];
 
-    res.json(comments);
+    res.json(comments.map((comment) => serializeComment(comment, req.user?.id)));
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener comentarios.' });
   }
@@ -73,31 +94,51 @@ export const getMemeComments = async (req: Request, res: Response): Promise<void
 export const reactToComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { type } = req.body; // 'like' | 'dislike'
+    const { type } = req.body as { type?: ReactionType }; // 'like' | 'dislike'
+    const userId = req.user?.id;
 
-    const comment = await Comment.findById(id) as CommentDocument | null;
+    if (!userId) {
+      res.status(401).json({ error: 'Debes iniciar sesión para reaccionar.' });
+      return;
+    }
+    if (type !== 'like' && type !== 'dislike') {
+      res.status(400).json({ error: 'Tipo de reacción inválido. Debe ser "like" o "dislike".' });
+      return;
+    }
+
+    const comment = (await Comment.findById(id)) as CommentDocument | null;
     if (!comment) {
       res.status(404).json({ error: 'Comentario no encontrado.' });
       return;
     }
 
-    // 1. Incrementar reacción
+    // Un voto por usuario: si ya votó lo mismo no cambia; si votó lo contrario, se cambia.
+    const alreadyLiked = comment.likedBy.some((voter) => String(voter) === userId);
+    const alreadyDisliked = comment.dislikedBy.some((voter) => String(voter) === userId);
+
     if (type === 'like') {
-      comment.likes += 1;
-    } else if (type === 'dislike') {
-      comment.dislikes += 1;
+      if (!alreadyLiked) {
+        comment.likedBy.push(new Types.ObjectId(userId));
+        comment.dislikedBy = comment.dislikedBy.filter((voter) => String(voter) !== userId);
+      }
+    } else if (!alreadyDisliked) {
+      comment.dislikedBy.push(new Types.ObjectId(userId));
+      comment.likedBy = comment.likedBy.filter((voter) => String(voter) !== userId);
     }
 
-    // 2. Actualizar el score del propio comentario
+    comment.likes = comment.likedBy.length;
+    comment.dislikes = comment.dislikedBy.length;
+
+    // Actualizar el score del propio comentario
     await comment.updateScore();
 
-    // 3. Cascada: Actualizar ÚNICAMENTE al autor del comentario
+    // Cascada: Actualizar ÚNICAMENTE al autor del comentario
     const commentAuthor = await User.findById(comment.author);
     if (commentAuthor && typeof commentAuthor.updateScore === 'function') {
       await commentAuthor.updateScore();
     }
 
-    res.json({ message: 'Reacción a comentario procesada', comment });
+    res.json({ message: 'Reacción a comentario procesada', comment: serializeComment(comment, userId) });
   } catch (error) {
     console.error('Error al reaccionar al comentario:', error);
     res.status(500).json({ error: 'Error al procesar la reacción.' });

@@ -69,6 +69,26 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
   next();
 };
 
+/**
+ * Igual que `requireAuth` pero sin exigir sesión ni CSRF: si hay una cookie
+ * válida deja la sesión en `req.user` y si no, sigue como anónimo. Pensado para
+ * endpoints públicos que quieren personalizar la respuesta (p. ej. `myReaction`).
+ */
+export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+  const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
+  if (typeof token === 'string' && token !== '') {
+    try {
+      const payload: unknown = jwt.verify(token, getJwtSecret());
+      if (isJwtPayload(payload)) {
+        req.user = { id: payload.sub, role: payload.role };
+      }
+    } catch {
+      // Cookie inválida o expirada: se trata como visitante anónimo.
+    }
+  }
+  next();
+};
+
 /** Debe usarse después de `requireAuth`. Responde 403 si el rol no está permitido. */
 export const requireRole =
   (...roles: Role[]) =>

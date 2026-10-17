@@ -18,6 +18,8 @@ export interface Meme {
   score: number;
   createdAt?: string;
   tags?: string[];
+  /** Voto del usuario en sesión (null si es anónimo o no ha votado). */
+  myReaction?: 'like' | 'dislike' | null;
 }
 
 export interface Comment {
@@ -31,4 +33,6 @@ export interface Comment {
   dislikes: number;
   score: number; // <--- Nuevo campo
   createdAt?: string;
+  /** Voto del usuario en sesión (null si es anónimo o no ha votado). */
+  myReaction?: 'like' | 'dislike' | null;
 }
