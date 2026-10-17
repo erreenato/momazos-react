@@ -28,5 +28,6 @@ export interface Comment {
   parentType: 'Meme' | 'Comment';
   likes: number;
   dislikes: number;
+  score: number; // <--- Nuevo campo
   createdAt?: string;
 }
