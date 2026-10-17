@@ -6,7 +6,11 @@ import { User } from '../models/User.js';
 export const createComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { content, parentId, parentType } = req.body;
-    const userId = (req as any).user?._id;
+    const userId = req.user?.id;
+    if (!userId) {
+      res.status(401).json({ error: 'No autenticado' });
+      return;
+    }
 
     let targetMemeId = parentId;
 
@@ -29,6 +33,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
       memeId: targetMemeId,
     });
     await newComment.save();
+    await newComment.updateScore();
 
     // 2. Disparar recálculo en el Meme raíz
     const meme = await Meme.findById(targetMemeId);
@@ -54,7 +59,7 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
 export const getMemeComments = async (req: Request, res: Response): Promise<void> => {
   try {
     const { memeId } = req.params;
-    const comments = await Comment.find({ parentId: memeId })
+    const comments = await Comment.find({ memeId })
       .populate('author', 'username avatarUrl')
       .sort({ createdAt: -1 });
 

@@ -1,7 +1,5 @@
 import { Request, Response } from 'express';
 import { Meme } from '../models/Meme.js';
-import { User } from '../models/User.js';
-import { Comment } from '../models/Comment.js';
 
 // GET /api/memes
 export const getMemes = async (req: Request, res: Response): Promise<void> => {
@@ -44,19 +42,10 @@ export const reactToMeme = async (req: Request, res: Response): Promise<void> =>
       meme.dislikes += 1;
     }
 
-    // 4. Contar los comentarios asociados al meme
-    const totalComments = await Comment.countDocuments({ parentId: meme._id });
+    // 4. Recalcular y guardar el score del meme y de su autor
+    const updatedMemeScore = await meme.updateScore();
 
-    // 5. Recalcular y guardar el score del meme
-    const updatedMemeScore = await meme.updateScore(totalComments);
-
-    // 6. Recalcular y guardar el score (karma) del autor del meme
-    const author = await User.findById(meme.author);
-    if (author) {
-      await author.updateScore();
-    }
-
-    // 7. Retornar respuesta exitosa
+    // 5. Retornar respuesta exitosa
     res.json({
       message: `Reacción '${type}' registrada exitosamente.`,
       meme: {

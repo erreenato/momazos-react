@@ -4,7 +4,7 @@ import { Comment } from './Comment.js';
 
 // 1. Interfaz de los métodos de la instancia
 export interface IMemeMethods {
-  calculateScore(totalComments?: number): number;
+  calculateScore(commentScore?: number): number;
   updateScore(totalComments?: number): Promise<number>;
 }
 
@@ -40,41 +40,30 @@ const memeSchema = new Schema<IMeme, {}, IMemeMethods>(
   { timestamps: true }
 );
 
-memeSchema.methods.updateScore = async function(): Promise<number> {
-  // 1. Puntos base por likes y dislikes del meme
-  const baseScore = this.likes - this.dislikes;
+// Recalcula el score a partir de todas sus fuentes, sin depender del valor previo.
+memeSchema.methods.calculateScore = function (this: IMeme, commentScore: number = 0): number {
+  const approvedBase = this.status === 'approved' ? 10 : 0;
+  const likesScore = this.likes * 2;
+  const dislikesScore = this.dislikes * 1.5;
+  return approvedBase + likesScore - dislikesScore + commentScore;
+};
 
-  // 2. Traer todos los comentarios pertenecientes a este meme
+memeSchema.methods.updateScore = async function (this: IMeme): Promise<number> {
   const comments = await Comment.find({ memeId: this._id });
+  const commentScore = comments.reduce(
+    (total, comment) => total + (comment.parentType === 'Meme' ? 3 : 1),
+    0,
+  );
 
-  // 3. Aplicar ponderación
-  let commentScore = 0;
-  for (const comment of comments) {
-    if (comment.parentType === 'Meme') {
-      commentScore += 3; // Comentario directo
-    } else {
-      commentScore += 1; // Respuesta anidada
-    }
-  }
-
-  // 4. Guardar puntaje del meme
-  this.score = baseScore + commentScore;
+  this.score = this.calculateScore(commentScore);
   await this.save();
 
-  // 5. Cascada: Actualizar el score del autor del meme
   const author = await User.findById(this.author);
   if (author && typeof author.updateScore === 'function') {
     await author.updateScore();
   }
 
-  return this.score; // 👈 Retornamos el número para cumplir con Promise<number>
-};
-
-memeSchema.methods.updateScore = async function (this: IMeme, totalComments: number = 0): Promise<number> {
-  const newScore = this.calculateScore(totalComments);
-  this.score = newScore;
-  await this.save();
-  return newScore;
+  return this.score;
 };
 
 export const Meme = model<IMeme>('Meme', memeSchema);

@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
-import { mockComments, mockMemes, mockUsers } from '../mockData';
+import { mockMemes } from '../mockData';
 import type { Comment, Meme, User } from '../types';
+import { getCommentsByMeme, postComment } from '../api/comment';
+import { useAuth } from '../auth/useAuth';
 import { reactToMeme } from '../api/meme';
 import './MemeDetailView.css';
-
-const CURRENT_USER: User = mockUsers[0];
 
 const AVATAR_COLORS = ['#aa3bff', '#ff6b6b', '#4dabf7', '#51cf66', '#ffa94d', '#f783ac', '#20c997'];
 
@@ -37,17 +37,6 @@ function timeAgo(dateString?: string): string {
   if (months < 12) return `hace ${months} mes${months > 1 ? 'es' : ''}`;
   const years = Math.floor(months / 12);
   return `hace ${years} año${years > 1 ? 's' : ''}`;
-}
-
-function countReplies(commentId: string): number {
-  const replies = mockComments.filter((c) => c.parentType === 'Comment' && c.parentId === commentId);
-  return replies.reduce((sum, reply) => sum + 1 + countReplies(reply.id), 0);
-}
-
-function countAllComments(memeId: string, extra: Comment[]): number {
-  const topLevel = mockComments.filter((c) => c.parentType === 'Meme' && c.parentId === memeId);
-  const total = topLevel.reduce((sum, c) => sum + 1 + countReplies(c.id), 0);
-  return total + extra.length;
 }
 
 function Avatar({ name, size = 38 }: { name: string; size?: number }) {
@@ -109,8 +98,8 @@ function MoreIcon() {
   );
 }
 
-function CommentThread({ comment }: { comment: Comment }) {
-  const replies = mockComments.filter((c) => c.parentType === 'Comment' && c.parentId === comment.id);
+function CommentThread({ comment, comments }: { comment: Comment; comments: Comment[] }) {
+  const replies = comments.filter((c) => c.parentType === 'Comment' && c.parentId === comment.id);
   const name = authorName(comment.author);
 
   return (
@@ -139,7 +128,7 @@ function CommentThread({ comment }: { comment: Comment }) {
       {replies.length > 0 && (
         <ul className="comment-replies">
           {replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} />
+            <CommentThread key={reply.id} comment={reply} comments={comments} />
           ))}
         </ul>
       )}
@@ -148,6 +137,7 @@ function CommentThread({ comment }: { comment: Comment }) {
 }
 
 function useMemeInteractions(meme: Meme) {
+  const { user } = useAuth();
   const [vote, setVote] = useState<'like' | 'dislike' | null>(null);
   const [likes, setLikes] = useState<number>(meme.likes);
   const [dislikes, setDislikes] = useState<number>(meme.dislikes);
@@ -155,13 +145,37 @@ function useMemeInteractions(meme: Meme) {
   const [reactionError, setReactionError] = useState<string | null>(null);
 
   const [newComment, setNewComment] = useState('');
-  const [extraComments, setExtraComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
-  const topLevelComments = [
-    ...extraComments,
-    ...mockComments.filter((c) => c.parentType === 'Meme' && c.parentId === meme.id),
-  ];
-  const totalComments = countAllComments(meme.id, extraComments);
+  useEffect(() => {
+    let cancelled = false;
+    getCommentsByMeme(meme.id)
+      .then((loadedComments) => {
+        if (!cancelled) {
+          setComments(loadedComments);
+          setCommentError(null);
+          setCommentsLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setCommentError(err instanceof Error ? err.message : 'No se pudieron cargar los comentarios.');
+          setCommentsLoading(false);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCommentsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [meme.id]);
+
+  const topLevelComments = comments.filter((c) => c.parentType === 'Meme' && c.parentId === meme.id);
+  const totalComments = comments.length;
 
   const toggleVote = async (type: 'like' | 'dislike') => {
     // El backend incrementa el contador en cada POST y no tiene operación de
@@ -184,23 +198,19 @@ function useMemeInteractions(meme: Meme) {
     }
   };
 
-  const handleAddComment = (event: FormEvent) => {
+  const handleAddComment = async (event: FormEvent) => {
     event.preventDefault();
     const content = newComment.trim();
-    if (!content) return;
-    const comment: Comment = {
-      id: `comment_local_${Date.now()}`,
-      author: CURRENT_USER,
-      content,
-      parentId: meme.id,
-      parentType: 'Meme',
-      likes: 0,
-      dislikes: 0,
-      score: 0,
-      createdAt: new Date().toISOString(),
-    };
-    setExtraComments((prev) => [comment, ...prev]);
-    setNewComment('');
+    if (!content || !user) return;
+
+    setCommentError(null);
+    try {
+      const comment = await postComment(content, meme.id);
+      setComments((currentComments) => [comment, ...currentComments]);
+      setNewComment('');
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'No se pudo publicar el comentario.');
+    }
   };
 
   return {
@@ -212,6 +222,10 @@ function useMemeInteractions(meme: Meme) {
     dislikeCount: dislikes,
     topLevelComments,
     totalComments,
+    comments,
+    commentsLoading,
+    commentError,
+    canComment: user !== null,
     newComment,
     setNewComment,
     handleAddComment,
@@ -232,21 +246,24 @@ function CommentForm({
   value,
   onChange,
   onSubmit,
+  disabled = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
+  disabled?: boolean;
 }) {
   return (
     <form className="meme-comment-form" onSubmit={onSubmit}>
       <input
         type="text"
-        placeholder={`Añade un comentario`}
+        placeholder={disabled ? 'Inicia sesión para comentar' : 'Añade un comentario'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         maxLength={300}
+        disabled={disabled}
       />
-      <button type="submit" disabled={!value.trim()} aria-label="Enviar comentario">
+      <button type="submit" disabled={disabled || !value.trim()} aria-label="Enviar comentario">
         <SendIcon />
       </button>
     </form>
@@ -272,6 +289,10 @@ export function FeaturedMemeDetail({
     dislikeCount,
     topLevelComments,
     totalComments,
+    comments,
+    commentsLoading,
+    commentError,
+    canComment,
     newComment,
     setNewComment,
     handleAddComment,
@@ -344,14 +365,24 @@ export function FeaturedMemeDetail({
         <p className="meme-pin-comments-heading">{totalComments} comentarios</p>
 
         <ul className="meme-pin-comments-list">
-          {topLevelComments.length === 0 ? (
+          {commentsLoading ? (
+            <li className="meme-card-comments-empty">Cargando comentarios...</li>
+          ) : topLevelComments.length === 0 ? (
             <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
           ) : (
-            topLevelComments.map((comment) => <CommentThread key={comment.id} comment={comment} />)
+            topLevelComments.map((comment) => (
+              <CommentThread key={comment.id} comment={comment} comments={comments} />
+            ))
           )}
         </ul>
 
-        <CommentForm value={newComment} onChange={setNewComment} onSubmit={handleAddComment} />
+        {commentError && <p role="alert">{commentError}</p>}
+        <CommentForm
+          value={newComment}
+          onChange={setNewComment}
+          onSubmit={handleAddComment}
+          disabled={!canComment}
+        />
       </div>
     </article>
   );
@@ -369,6 +400,10 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
     dislikeCount,
     topLevelComments,
     totalComments,
+    comments,
+    commentsLoading,
+    commentError,
+    canComment,
     newComment,
     setNewComment,
     handleAddComment,
@@ -446,14 +481,24 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
       {commentsOpen && (
         <div className="meme-card-comments">
           <ul className="meme-card-comments-list">
-            {topLevelComments.length === 0 ? (
+            {commentsLoading ? (
+              <li className="meme-card-comments-empty">Cargando comentarios...</li>
+            ) : topLevelComments.length === 0 ? (
               <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
             ) : (
-              topLevelComments.map((comment) => <CommentThread key={comment.id} comment={comment} />)
+              topLevelComments.map((comment) => (
+                <CommentThread key={comment.id} comment={comment} comments={comments} />
+              ))
             )}
           </ul>
 
-          <CommentForm value={newComment} onChange={setNewComment} onSubmit={handleAddComment} />
+          {commentError && <p role="alert">{commentError}</p>}
+          <CommentForm
+            value={newComment}
+            onChange={setNewComment}
+            onSubmit={handleAddComment}
+            disabled={!canComment}
+          />
         </div>
       )}
     </article>
