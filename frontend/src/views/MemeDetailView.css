@@ -282,6 +282,9 @@
   font-family: inherit;
 }
 .comment-actions button:hover { color: var(--accent); }
+.comment-actions button.active-like { color: #51cf66; }
+.comment-actions button.active-dislike { color: #ff6b6b; }
+.comment-actions button:disabled { cursor: wait; opacity: 0.55; }
 .comment-actions svg { width: 13px; height: 13px; }
 
 .comment-replies {

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
 import { mockMemes } from '../mockData';
 import type { Comment, Meme, User } from '../types';
-import { getCommentsByMeme, postComment } from '../api/comment';
+import { getCommentsByMeme, postComment, reactToCommentApi } from '../api/comment';
 import { useAuth } from '../auth/useAuth';
 import { reactToMeme } from '../api/meme';
 import './MemeDetailView.css';
@@ -102,10 +102,16 @@ function CommentThread({
   comment,
   comments,
   onReply,
+  reactions,
+  reactingCommentId,
+  onReact,
 }: {
   comment: Comment;
   comments: Comment[];
   onReply: (comment: Comment) => void;
+  reactions: Record<string, 'like' | 'dislike' | null>;
+  reactingCommentId: string | null;
+  onReact: (commentId: string, type: 'like' | 'dislike') => void;
 }) {
   const replies = comments.filter((c) => c.parentType === 'Comment' && c.parentId === comment.id);
   const name = authorName(comment.author);
@@ -123,10 +129,20 @@ function CommentThread({
           </div>
           <p className="comment-content">{comment.content}</p>
           <div className="comment-actions">
-            <button type="button">
+            <button
+              type="button"
+              className={reactions[comment.id] === 'like' ? 'active-like' : ''}
+              onClick={() => onReact(comment.id, 'like')}
+              disabled={reactingCommentId === comment.id}
+            >
               <ThumbUpIcon /> {comment.likes}
             </button>
-            <button type="button">
+            <button
+              type="button"
+              className={reactions[comment.id] === 'dislike' ? 'active-dislike' : ''}
+              onClick={() => onReact(comment.id, 'dislike')}
+              disabled={reactingCommentId === comment.id}
+            >
               <ThumbDownIcon /> {comment.dislikes}
             </button>
             <button type="button" onClick={() => onReply(comment)}>Responder</button>
@@ -136,7 +152,15 @@ function CommentThread({
       {replies.length > 0 && (
         <ul className="comment-replies">
           {replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} comments={comments} onReply={onReply} />
+            <CommentThread
+              key={reply.id}
+              comment={reply}
+              comments={comments}
+              onReply={onReply}
+              reactions={reactions}
+              reactingCommentId={reactingCommentId}
+              onReact={onReact}
+            />
           ))}
         </ul>
       )}
@@ -157,6 +181,10 @@ function useMemeInteractions(meme: Meme) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [commentReactions, setCommentReactions] = useState<
+    Record<string, 'like' | 'dislike' | null>
+  >({});
+  const [reactingCommentId, setReactingCommentId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,6 +255,27 @@ function useMemeInteractions(meme: Meme) {
     }
   };
 
+  const handleCommentReaction = async (commentId: string, type: 'like' | 'dislike') => {
+    if (reactingCommentId) return;
+
+    setReactingCommentId(commentId);
+    setCommentError(null);
+    try {
+      const response = await reactToCommentApi(commentId, type);
+      setComments((currentComments) =>
+        currentComments.map((comment) => (comment.id === commentId ? response.comment : comment)),
+      );
+      setCommentReactions((currentReactions) => ({
+        ...currentReactions,
+        [commentId]: type,
+      }));
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'No se pudo registrar la reacción.');
+    } finally {
+      setReactingCommentId(null);
+    }
+  };
+
   return {
     vote,
     toggleVote,
@@ -242,6 +291,9 @@ function useMemeInteractions(meme: Meme) {
     canComment: user !== null,
     replyTo,
     setReplyTo,
+    commentReactions,
+    reactingCommentId,
+    handleCommentReaction,
     newComment,
     setNewComment,
     handleAddComment,
@@ -323,6 +375,9 @@ export function FeaturedMemeDetail({
     canComment,
     replyTo,
     setReplyTo,
+    commentReactions,
+    reactingCommentId,
+    handleCommentReaction,
     newComment,
     setNewComment,
     handleAddComment,
@@ -401,7 +456,15 @@ export function FeaturedMemeDetail({
             <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
           ) : (
             topLevelComments.map((comment) => (
-              <CommentThread key={comment.id} comment={comment} comments={comments} onReply={setReplyTo} />
+              <CommentThread
+                key={comment.id}
+                comment={comment}
+                comments={comments}
+                onReply={setReplyTo}
+                reactions={commentReactions}
+                reactingCommentId={reactingCommentId}
+                onReact={handleCommentReaction}
+              />
             ))
           )}
         </ul>
@@ -438,6 +501,9 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
     canComment,
     replyTo,
     setReplyTo,
+    commentReactions,
+    reactingCommentId,
+    handleCommentReaction,
     newComment,
     setNewComment,
     handleAddComment,
@@ -521,7 +587,15 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
               <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
             ) : (
               topLevelComments.map((comment) => (
-                <CommentThread key={comment.id} comment={comment} comments={comments} onReply={setReplyTo} />
+                <CommentThread
+                  key={comment.id}
+                  comment={comment}
+                  comments={comments}
+                  onReply={setReplyTo}
+                  reactions={commentReactions}
+                  reactingCommentId={reactingCommentId}
+                  onReact={handleCommentReaction}
+                />
               ))
             )}
           </ul>
