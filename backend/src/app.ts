@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import authRoutes from './routes/auth.routes.js';
 import moderationRoutes from './routes/moderation.routes.js';
+import memeRoutes from './routes/meme.routes.js';
 
 const app: Application = express();
 
@@ -24,5 +25,6 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api', moderationRoutes);
+app.use('/api/memes', memeRoutes);
 
 export default app;
