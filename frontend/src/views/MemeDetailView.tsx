@@ -98,7 +98,15 @@ function MoreIcon() {
   );
 }
 
-function CommentThread({ comment, comments }: { comment: Comment; comments: Comment[] }) {
+function CommentThread({
+  comment,
+  comments,
+  onReply,
+}: {
+  comment: Comment;
+  comments: Comment[];
+  onReply: (comment: Comment) => void;
+}) {
   const replies = comments.filter((c) => c.parentType === 'Comment' && c.parentId === comment.id);
   const name = authorName(comment.author);
 
@@ -121,14 +129,14 @@ function CommentThread({ comment, comments }: { comment: Comment; comments: Comm
             <button type="button">
               <ThumbDownIcon /> {comment.dislikes}
             </button>
-            <button type="button">Responder</button>
+            <button type="button" onClick={() => onReply(comment)}>Responder</button>
           </div>
         </div>
       </div>
       {replies.length > 0 && (
         <ul className="comment-replies">
           {replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} comments={comments} />
+            <CommentThread key={reply.id} comment={reply} comments={comments} onReply={onReply} />
           ))}
         </ul>
       )}
@@ -145,6 +153,7 @@ function useMemeInteractions(meme: Meme) {
   const [reactionError, setReactionError] = useState<string | null>(null);
 
   const [newComment, setNewComment] = useState('');
+  const [replyTo, setReplyTo] = useState<Comment | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -205,9 +214,14 @@ function useMemeInteractions(meme: Meme) {
 
     setCommentError(null);
     try {
-      const comment = await postComment(content, meme.id);
+      const comment = await postComment(
+        content,
+        replyTo?.id ?? meme.id,
+        replyTo ? 'Comment' : 'Meme',
+      );
       setComments((currentComments) => [comment, ...currentComments]);
       setNewComment('');
+      setReplyTo(null);
     } catch (err) {
       setCommentError(err instanceof Error ? err.message : 'No se pudo publicar el comentario.');
     }
@@ -226,6 +240,8 @@ function useMemeInteractions(meme: Meme) {
     commentsLoading,
     commentError,
     canComment: user !== null,
+    replyTo,
+    setReplyTo,
     newComment,
     setNewComment,
     handleAddComment,
@@ -247,14 +263,26 @@ function CommentForm({
   onChange,
   onSubmit,
   disabled = false,
+  replyTo,
+  onCancelReply,
 }: {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (event: FormEvent) => void;
   disabled?: boolean;
+  replyTo?: Comment | null;
+  onCancelReply?: () => void;
 }) {
   return (
     <form className="meme-comment-form" onSubmit={onSubmit}>
+      {replyTo && (
+        <div className="meme-comment-replying">
+          Respondiendo a {authorName(replyTo.author)}
+          <button type="button" onClick={onCancelReply} aria-label="Cancelar respuesta">
+            ×
+          </button>
+        </div>
+      )}
       <input
         type="text"
         placeholder={disabled ? 'Inicia sesión para comentar' : 'Añade un comentario'}
@@ -293,6 +321,8 @@ export function FeaturedMemeDetail({
     commentsLoading,
     commentError,
     canComment,
+    replyTo,
+    setReplyTo,
     newComment,
     setNewComment,
     handleAddComment,
@@ -371,7 +401,7 @@ export function FeaturedMemeDetail({
             <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
           ) : (
             topLevelComments.map((comment) => (
-              <CommentThread key={comment.id} comment={comment} comments={comments} />
+              <CommentThread key={comment.id} comment={comment} comments={comments} onReply={setReplyTo} />
             ))
           )}
         </ul>
@@ -382,6 +412,8 @@ export function FeaturedMemeDetail({
           onChange={setNewComment}
           onSubmit={handleAddComment}
           disabled={!canComment}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
         />
       </div>
     </article>
@@ -404,6 +436,8 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
     commentsLoading,
     commentError,
     canComment,
+    replyTo,
+    setReplyTo,
     newComment,
     setNewComment,
     handleAddComment,
@@ -487,7 +521,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
               <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
             ) : (
               topLevelComments.map((comment) => (
-                <CommentThread key={comment.id} comment={comment} comments={comments} />
+                <CommentThread key={comment.id} comment={comment} comments={comments} onReply={setReplyTo} />
               ))
             )}
           </ul>
@@ -498,6 +532,8 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
             onChange={setNewComment}
             onSubmit={handleAddComment}
             disabled={!canComment}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(null)}
           />
         </div>
       )}
