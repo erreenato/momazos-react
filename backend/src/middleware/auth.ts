@@ -72,14 +72,59 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
 /** Debe usarse después de `requireAuth`. Responde 403 si el rol no está permitido. */
 export const requireRole =
   (...roles: Role[]) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'No autenticado' });
-      return;
-    }
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'No tienes permisos para esta acción' });
-      return;
-    }
+    (req: Request, res: Response, next: NextFunction): void => {
+      if (!req.user) {
+        res.status(401).json({ error: 'No autenticado' });
+        return;
+      }
+      if (!roles.includes(req.user.role)) {
+        res.status(403).json({ error: 'No tienes permisos para esta acción' });
+        return;
+      }
+      next();
+    };
+
+
+/**
+ * Identifica al usuario si tiene una sesión válida.
+ * Permite continuar cuando no hay sesión.
+ */
+export const optionalAuth = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
+
+  if (typeof token !== 'string' || token === '') {
     next();
+    return;
+  }
+
+  let payload: unknown;
+
+  try {
+    payload = jwt.verify(token, getJwtSecret());
+  } catch {
+    res.status(401).json({ error: 'Sesión inválida o expirada' });
+    return;
+  }
+
+  if (!isJwtPayload(payload)) {
+    res.status(401).json({ error: 'Sesión inválida o expirada' });
+    return;
+  }
+
+  if (req.get(CSRF_HEADER_NAME) !== payload.csrf) {
+    res.status(401).json({ error: 'Token CSRF inválido' });
+    return;
+  }
+
+  req.user = {
+    id: payload.sub,
+    role: payload.role,
   };
+
+  next();
+};
+

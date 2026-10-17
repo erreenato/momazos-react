@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { publishMeme } from '../memeStore';
+import { apiFetch } from '../api/client';
 import './SubirPost.css';
 
 export function SubirPost() {
@@ -11,36 +11,73 @@ export function SubirPost() {
   const [fileKey, setFileKey] = useState(0); // permite vaciar el input de archivo
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFile(event.target.files?.[0] ?? null);
     setError('');
   };
 
-  const handleSubmit = (event: FormEvent) => {
+
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim()) return;
 
-    // Con archivo se usa una URL temporal del navegador (solo vale mientras la
-    // página esté abierta); con el backend real se subirá el archivo al servidor.
-    const source =
-      mode === 'url' ? imageUrl.trim() : file ? URL.createObjectURL(file) : '';
+    if (publishing) return;
 
-    if (!source) {
-      setError(mode === 'url' ? 'Ingresa la URL de la imagen.' : 'Elige una imagen para subir.');
+    const cleanTitle = title.trim();
+
+    if (!cleanTitle) {
+      setError('Ingresa un título.');
       return;
     }
 
-    // El meme nace como "pendiente" y queda a la espera de un moderador.
-    publishMeme({ title: title.trim(), imageUrl: source });
 
+    if (mode === 'file' && !file) {
+      setError('Selecciona una imagen.');
+      return;
+    }
+
+    if (mode === 'url' && !imageUrl.trim()) {
+      setError('Ingresa la URL de la imagen.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', cleanTitle);
+
+    if (mode === 'file' && file) {
+      formData.append('image', file);
+    } else {
+      formData.append('imageUrl', imageUrl.trim());
+    }
+
+
+    setPublishing(true);
     setError('');
-    setTitle('');
-    setImageUrl('');
-    setFile(null);
-    setFileKey((key) => key + 1);
-    setSubmitted(true);
+    setSubmitted(false);
+
+    try {
+      await apiFetch('/memes', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setTitle('');
+      setImageUrl('');
+      setFile(null);
+      setFileKey((key) => key + 1);
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo publicar el meme.',
+      );
+    } finally {
+      setPublishing(false);
+    }
   };
+
 
   return (
     <div className="subir-post">
@@ -118,7 +155,9 @@ export function SubirPost() {
 
         {error && <p className="subir-post-error">{error}</p>}
 
-        <button type="submit">Publicar</button>
+        <button type="submit" disabled={publishing}>
+          {publishing ? 'Publicando…' : 'Publicar'}
+        </button>
 
         {submitted && (
           <p className="subir-post-success">¡Tu momo quedó pendiente de moderación!</p>

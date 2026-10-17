@@ -58,15 +58,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const { method = 'GET', body, redirectOnUnauthorized = true } = options;
 
   const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  const csrfToken = readSession()?.csrfToken;
+  if (body !== undefined && !(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  } const csrfToken = readSession()?.csrfToken;
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
   const response = await fetch(`${API_URL}${path}`, {
     method,
     headers,
     credentials: 'include',
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body:
+      body === undefined
+        ? undefined
+        : body instanceof FormData
+          ? body
+          : JSON.stringify(body),
   });
 
   if (response.status === 401 && redirectOnUnauthorized) {

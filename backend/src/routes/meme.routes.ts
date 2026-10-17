@@ -1,11 +1,19 @@
 import { Router } from 'express';
-import { getMemeRanking, getMemes, reactToMeme } from '../controllers/meme.controller.js';
+import {
+    getMemeRanking,
+    getMemes,
+    reactToMeme,
+    createMeme,
+} from '../controllers/meme.controller.js';
+import { requireAuth } from '../middleware/auth.js';
+import { uploadMemeImage } from '../middleware/upload.js';
 
 const router = Router();
 
 // ⚠️ DEBE SER '/' PARA QUE SEA /api/memes
 router.get('/', getMemes);
 
+router.post('/', requireAuth, uploadMemeImage, createMeme);
 // GET /api/memes/ranking (⚠️ IMPORTANTE: poner antes de /:id)
 router.get('/ranking', getMemeRanking);
 
