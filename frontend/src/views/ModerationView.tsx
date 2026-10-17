@@ -1,31 +1,51 @@
-import { useState } from 'react';
-import { mockMemes } from '../mockData';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../api/client';
 import type { Meme } from '../types';
 import './ModerationView.css';
 
+type ModerationDecision = 'approved' | 'rejected';
+
 export function ModerationView() {
-    // Nos quedamos inicialmente solo con los memes pendientes.
-    const [pendingMemes, setPendingMemes] = useState<Meme[]>(
-        mockMemes.filter((meme) => meme.status === 'pending')
-    );
+    // Memes pendientes que entrega el backend (solo moderadores).
+    const [pendingMemes, setPendingMemes] = useState<Meme[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Guarda el último mensaje de acción para dar feedback visual.
     const [message, setMessage] = useState<string | null>(null);
+    // Meme que se está actualizando, para deshabilitar sus botones.
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-    const approveMeme = (memeId: string) => {
-        setPendingMemes((currentMemes) =>
-            currentMemes.filter((meme) => meme.id !== memeId)
-        );
+    useEffect(() => {
+        apiFetch<Meme[]>('/moderation/memes')
+            .then(setPendingMemes)
+            .catch((err: unknown) => {
+                setError(err instanceof Error ? err.message : 'No se pudieron cargar los memes.');
+            })
+            .finally(() => setLoading(false));
+    }, []);
 
-        setMessage('Meme aprobado correctamente.');
-    };
-
-    const rejectMeme = (memeId: string) => {
-        setPendingMemes((currentMemes) =>
-            currentMemes.filter((meme) => meme.id !== memeId)
-        );
-
-        setMessage('Meme rechazado correctamente.');
+    const moderateMeme = async (memeId: string, status: ModerationDecision) => {
+        setUpdatingId(memeId);
+        setMessage(null);
+        try {
+            await apiFetch<Meme>(`/memes/${memeId}/status`, {
+                method: 'PATCH',
+                body: { status },
+            });
+            setPendingMemes((currentMemes) =>
+                currentMemes.filter((meme) => meme.id !== memeId)
+            );
+            setMessage(
+                status === 'approved'
+                    ? 'Meme aprobado correctamente.'
+                    : 'Meme rechazado correctamente.'
+            );
+        } catch (err) {
+            setMessage(err instanceof Error ? err.message : 'No se pudo moderar el meme.');
+        } finally {
+            setUpdatingId(null);
+        }
     };
 
     return (
@@ -43,7 +63,15 @@ export function ModerationView() {
                 </p>
             )}
 
-            {pendingMemes.length === 0 ? (
+            {loading ? (
+                <p className="empty-state">
+                    Cargando memes pendientes…
+                </p>
+            ) : error !== null ? (
+                <p className="empty-state">
+                    {error}
+                </p>
+            ) : pendingMemes.length === 0 ? (
                 <p className="empty-state">
                     No hay memes pendientes por moderar.
                 </p>
@@ -75,14 +103,16 @@ export function ModerationView() {
                                 <div className="moderation-actions">
                                     <button
                                         type="button"
-                                        onClick={() => approveMeme(meme.id)}
+                                        disabled={updatingId === meme.id}
+                                        onClick={() => moderateMeme(meme.id, 'approved')}
                                     >
                                         Aprobar
                                     </button>
 
                                     <button
                                         type="button"
-                                        onClick={() => rejectMeme(meme.id)}
+                                        disabled={updatingId === meme.id}
+                                        onClick={() => moderateMeme(meme.id, 'rejected')}
                                     >
                                         Rechazar
                                     </button>

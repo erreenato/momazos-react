@@ -1,6 +1,8 @@
 import express, { Application } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import authRoutes from './routes/auth.routes.js';
+import moderationRoutes from './routes/moderation.routes.js';
 
 const app: Application = express();
 
@@ -11,6 +13,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true, // Permitir envío de cookies httpOnly
+    exposedHeaders: ['X-CSRF-Token'], // Permitir que el frontend lea el token CSRF del login
   })
 );
 
@@ -18,5 +21,8 @@ app.use(
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'Servidor Express corriendo correctamente' });
 });
+
+app.use('/api/auth', authRoutes);
+app.use('/api', moderationRoutes);
 
 export default app;

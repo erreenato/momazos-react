@@ -29,3 +29,8 @@
     align-items: stretch;
   }
 }
+
+.route-status {
+  padding: 48px 20px;
+  color: var(--text);
+}

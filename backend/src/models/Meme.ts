@@ -17,7 +17,8 @@ const memeSchema = new Schema<IMeme>(
     title: { type: String, required: true, trim: true }, // Título del meme, obligatorio y sin espacios al inicio o final
     imageUrl: { type: String, required: true }, // URL de la imagen del meme, obligatorio
     author: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // Referencia al modelo User, obligatorio
-    status: { 
+    status: {
+      type: String,
       enum: ['pending', 'approved', 'rejected'], 
       default: 'pending' 
     }, // Estado del meme, puede ser 'pending', 'approved' o 'rejected', por defecto es 'pending'

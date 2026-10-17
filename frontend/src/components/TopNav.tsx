@@ -1,8 +1,6 @@
-import { NavLink } from 'react-router-dom';
-import { mockUsers } from '../mockData';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import './TopNav.css';
-
-const CURRENT_USER = mockUsers[0];
 
 function HomeIcon() {
   return (
@@ -45,10 +43,20 @@ const NAV_ITEMS = [
   { label: 'Inicio', icon: HomeIcon, to: '/' },
   { label: 'Subir Meme', icon: UploadIcon, to: '/subir' },
   { label: 'Ranking Memes', icon: TrophyIcon, to: '/ranking' },
-  { label: 'Moderación', icon: ShieldIcon, to: '/moderacion' },
+  { label: 'Moderación', icon: ShieldIcon, to: '/moderacion', moderatorOnly: true },
 ];
 
 export function TopNav() {
+  const { user, loading, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const visibleItems = NAV_ITEMS.filter((item) => !item.moderatorOnly || user?.role === 'moderator');
+
   return (
     <header className="top-nav">
       <NavLink to="/" className="top-nav-brand">
@@ -56,7 +64,7 @@ export function TopNav() {
       </NavLink>
 
       <nav className="top-nav-links" aria-label="Navegación principal">
-        {NAV_ITEMS.map(({ label, icon: Icon, to }) => (
+        {visibleItems.map(({ label, icon: Icon, to }) => (
           <NavLink
             key={label}
             to={to}
@@ -69,10 +77,27 @@ export function TopNav() {
         ))}
       </nav>
 
-      <NavLink to="/perfil" className={({ isActive }) => `top-nav-user${isActive ? ' active' : ''}`}>
-        <span className="top-nav-avatar">{CURRENT_USER.username.charAt(0).toUpperCase()}</span>
-        <span>@{CURRENT_USER.username}</span>
-      </NavLink>
+      {user ? (
+        <div className="top-nav-session">
+          <NavLink to="/perfil" className={({ isActive }) => `top-nav-user${isActive ? ' active' : ''}`}>
+            {user.avatarUrl ? (
+              <img className="top-nav-avatar" src={user.avatarUrl} alt="" />
+            ) : (
+              <span className="top-nav-avatar">{user.username.charAt(0).toUpperCase()}</span>
+            )}
+            <span>@{user.username}</span>
+          </NavLink>
+          <button type="button" className="top-nav-logout" onClick={handleLogout}>
+            Cerrar sesión
+          </button>
+        </div>
+      ) : (
+        !loading && (
+          <NavLink to="/login" className={({ isActive }) => `top-nav-user top-nav-login${isActive ? ' active' : ''}`}>
+            Iniciar sesión
+          </NavLink>
+        )
+      )}
     </header>
   );
 }
