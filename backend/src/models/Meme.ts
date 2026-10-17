@@ -1,6 +1,15 @@
 import { Schema, model, Document, Types } from 'mongoose';
+import { User } from './User.js';
+import { Comment } from './Comment.js';
 
-export interface IMeme extends Document {
+// 1. Interfaz de los métodos de la instancia
+export interface IMemeMethods {
+  calculateScore(commentScore?: number): number;
+  updateScore(totalComments?: number): Promise<number>;
+}
+
+// 2. Interfaz principal combinando propiedades y métodos
+export interface IMeme extends Document, IMemeMethods {
   title: string;
   imageUrl: string;
   author: Types.ObjectId;
@@ -12,21 +21,49 @@ export interface IMeme extends Document {
   createdAt: Date;
 }
 
-const memeSchema = new Schema<IMeme>(
+// 3. Crear el esquema tipando los métodos en el 3er parámetro genérico
+const memeSchema = new Schema<IMeme, {}, IMemeMethods>(
   {
-    title: { type: String, required: true, trim: true }, // Título del meme, obligatorio y sin espacios al inicio o final
-    imageUrl: { type: String, required: true }, // URL de la imagen del meme, obligatorio
-    author: { type: Schema.Types.ObjectId, ref: 'User', required: true }, // Referencia al modelo User, obligatorio
+    title: { type: String, required: true, trim: true },
+    imageUrl: { type: String, required: true },
+    author: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     status: { 
+      type: String, 
       enum: ['pending', 'approved', 'rejected'], 
       default: 'pending' 
-    }, // Estado del meme, puede ser 'pending', 'approved' o 'rejected', por defecto es 'pending'
-    likes: { type: Number, default: 0 }, // Número de likes del meme, por defecto 0
-    dislikes: { type: Number, default: 0 }, // Número de dislikes del meme, por defecto 0
-    score: { type: Number, default: 0 }, // Puntuación del meme, por defecto 0
-    tags: [{ type: String, trim: true }], // Lista de etiquetas del meme, cada etiqueta es una cadena de texto sin espacios al inicio o final
+    },
+    likes: { type: Number, default: 0 },
+    dislikes: { type: Number, default: 0 },
+    score: { type: Number, default: 0 },
+    tags: [{ type: String, trim: true }],
   },
-  { timestamps: true } // Agrega automáticamente los campos createdAt y updatedAt
+  { timestamps: true }
 );
+
+// Recalcula el score a partir de todas sus fuentes, sin depender del valor previo.
+memeSchema.methods.calculateScore = function (this: IMeme, commentScore: number = 0): number {
+  const approvedBase = this.status === 'approved' ? 10 : 0;
+  const likesScore = this.likes * 2;
+  const dislikesScore = this.dislikes * 1.5;
+  return approvedBase + likesScore - dislikesScore + commentScore;
+};
+
+memeSchema.methods.updateScore = async function (this: IMeme): Promise<number> {
+  const comments = await Comment.find({ memeId: this._id });
+  const commentScore = comments.reduce(
+    (total, comment) => total + (comment.parentType === 'Meme' ? 3 : 1),
+    0,
+  );
+
+  this.score = this.calculateScore(commentScore);
+  await this.save();
+
+  const author = await User.findById(this.author);
+  if (author && typeof author.updateScore === 'function') {
+    await author.updateScore();
+  }
+
+  return this.score;
+};
 
 export const Meme = model<IMeme>('Meme', memeSchema);

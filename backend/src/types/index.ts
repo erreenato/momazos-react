@@ -4,6 +4,7 @@ export interface User {
   role: 'user' | 'moderator';
   description?: string;
   score: number;
+  avatarUrl?: string;
 }
 
 export interface Meme {
@@ -24,7 +25,9 @@ export interface Comment {
   content: string;
   parentId: string; // ID del Meme o de otro Comment
   parentType: 'Meme' | 'Comment';
+  memeId: string; // ID del Meme al que pertenece el comentario
   likes: number;
   dislikes: number;
+  score: number; // <--- Nuevo campo
   createdAt?: string;
 }

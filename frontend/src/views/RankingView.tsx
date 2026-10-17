@@ -1,41 +1,58 @@
-import { useState } from 'react';
-import { mockUsers } from '../mockData';
-import { useMemes } from '../memeStore';
+
+import { useState, useEffect } from 'react';
+import { getTopMemes, getTopUsers } from '../api/meme';
 import type { Meme } from '../types';
+import type { RankingUser } from '../api/meme';
 import './RankingView.css';
 
 export function RankingView() {
   const [tab, setTab] = useState<'memes' | 'users'>('memes');
+  const [topMemes, setTopMemes] = useState<Meme[]>([]);
+  const [topUsers, setTopUsers] = useState<RankingUser[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const memes = useMemes();
+  useEffect(() => {
+    Promise.all([getTopMemes(), getTopUsers()])
+      .then(([memesData, usersData]) => {
+        setTopMemes(memesData);
+        setTopUsers(usersData);
+      })
+      .catch((err) => console.error('Error al cargar rankings:', err))
+      .finally(() => setLoading(false));
+  }, []);
 
-  // 1. Filtrar solo aprobados, ordenar de mayor a menor y tomar 10
-  const topMemes = [...memes]
-    .filter((meme) => meme.status === 'approved')
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
-
-  const topUsers = [...mockUsers]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10);
-
-  // Helper para obtener el username de forma segura
   const getAuthorName = (author: Meme['author']) => {
-    return typeof author === 'string' ? author : author.username;
+    if (!author) return 'Anónimo';
+    if (typeof author === 'string') return author;
+    return author.username ?? 'Anónimo';
   };
+
+  if (loading) {
+    return (
+      <div className="ranking-container">
+        <h2>🏆 Ranking</h2>
+        <p style={{ textAlign: 'center', marginTop: '2rem' }}>
+          Cargando mejores momazos...
+        </p>
+      </div>
+    );
+  }
+
+  // Mantener el return principal que ya existe debajo.
+
 
   return (
     <div className="ranking-container">
       <h2>🏆 Ranking</h2>
 
       <div className="ranking-tabs">
-        <button 
+        <button
           className={`tab-button ${tab === 'memes' ? 'active' : ''}`}
           onClick={() => setTab('memes')}
         >
           Top Memes
         </button>
-        <button 
+        <button
           className={`tab-button ${tab === 'users' ? 'active' : ''}`}
           onClick={() => setTab('users')}
         >
@@ -77,7 +94,7 @@ export function RankingView() {
 
           <ul className="ranking-list">
             {topUsers.map((user, index) => (
-              <li key={user.id} className="ranking-item user-grid">
+              <li key={user._id} className="ranking-item user-grid">
                 <strong className="ranking-position">#{index + 1}</strong>
                 <span>{user.username}</span>
                 <span className="score-cell">{user.score} pts</span>

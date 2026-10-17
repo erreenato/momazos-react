@@ -72,6 +72,7 @@ export const mockComments: Comment[] = [
     parentType: 'Meme',
     likes: 10,
     dislikes: 0,
+    score: 10,
     createdAt: '2026-03-01T10:30:00Z',
   },
   {
@@ -82,6 +83,7 @@ export const mockComments: Comment[] = [
     parentType: 'Comment',
     likes: 5,
     dislikes: 0,
+    score: 5,
     createdAt: '2026-03-01T10:35:00Z',
   },
 
@@ -94,6 +96,7 @@ export const mockComments: Comment[] = [
     parentType: 'Meme',
     likes: 25,
     dislikes: 1,
+    score: 24,
     createdAt: '2026-03-02T15:00:00Z',
   },
   {
@@ -104,6 +107,7 @@ export const mockComments: Comment[] = [
     parentType: 'Comment',
     likes: 12,
     dislikes: 0,
+    score: 12,
     createdAt: '2026-03-02T15:10:00Z',
   },
 
