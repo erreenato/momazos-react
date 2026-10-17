@@ -12,3 +12,13 @@ export const reactToMeme = async (memeId: string, type: 'like' | 'dislike') => {
     body: { type },
   });
 };
+
+// Obtener los mejores 10 memes
+export const getTopMemes = async () => {
+  return apiFetch<any[]>('/memes/ranking');
+};
+
+// Obtener los mejores 10 usuarios
+export const getTopUsers = async () => {
+  return apiFetch<any[]>('/users/ranking');
+};

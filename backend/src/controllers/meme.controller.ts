@@ -3,6 +3,21 @@ import { Meme } from '../models/Meme.js';
 import { User } from '../models/User.js';
 import { Comment } from '../models/Comment.js';
 
+// GET /api/memes
+export const getMemes = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Buscamos solo los memes aprobados y traemos el username de su autor
+    const memes = await Meme.find({ status: 'approved' })
+      .populate('author', 'username')
+      .sort({ createdAt: -1 }); // Ordenados del más reciente al más antiguo
+
+    res.json(memes);
+  } catch (error) {
+    console.error('Error al obtener memes:', error);
+    res.status(500).json({ error: 'Error al obtener los memes de la base de datos.' });
+  }
+};
+
 // POST /api/memes/:id/react
 export const reactToMeme = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -54,5 +69,17 @@ export const reactToMeme = async (req: Request, res: Response): Promise<void> =>
   } catch (error) {
     console.error('Error al reaccionar al meme:', error);
     res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+};
+
+export const getMemeRanking = async (req: Request, res: Response) => {
+  try {
+    const topMemes = await Meme.find({ status: 'approved' })
+      .populate('author', 'username')
+      .sort({ score: -1 })
+      .limit(10);
+    res.json(topMemes);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener ranking de memes' });
   }
 };
