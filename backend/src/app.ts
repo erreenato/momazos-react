@@ -8,6 +8,7 @@ import memeRoutes from './routes/meme.routes.js';
 const app: Application = express();
 
 // Middlewares requeridos
+app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 app.use(

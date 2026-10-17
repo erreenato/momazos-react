@@ -52,7 +52,7 @@ export interface ApiResponse<T> {
  * - `credentials: 'include'` para que el navegador mande la cookie httpOnly con el JWT.
  * - Header `X-CSRF-Token` con el token guardado en localStorage.
  * - Ante un 401 redirige a /login.
- * Devuelve también los headers de la respuesta (el login entrega ahí el token CSRF).
+ * Devuelve también los headers de la respuesta.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
   const { method = 'GET', body, redirectOnUnauthorized = true } = options;

@@ -5,12 +5,12 @@
   "main": "index.js",
   "scripts": {
     "test": "cross-env NODE_ENV=test tsx --test --test-concurrency=1 tests/**/*.test.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/scripts/runner.ts",
-  "seed:approved": "tsx src/scripts/runner.ts approved",
-  "seed:pending": "tsx src/scripts/runner.ts pending"
+    "seed:approved": "tsx src/scripts/runner.ts approved",
+    "seed:pending": "tsx src/scripts/runner.ts pending"
   },
   "keywords": [],
   "author": "",
