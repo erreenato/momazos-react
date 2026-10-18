@@ -66,50 +66,88 @@ const COMMENT_SEEDS: { meme: number; author: number; content: string; likes: num
 const pickUsers = (users: Types.ObjectId[], indexes: number[]): Types.ObjectId[] =>
   indexes.filter((index) => index < users.length).map((index) => users[index]);
 
-export const seedDatabase = async (): Promise<void> => {
-  console.log('🧹 Limpiando base de datos...');
-  await User.deleteMany({});
-  await Meme.deleteMany({});
-  await Comment.deleteMany({});
 
-  console.log('👤 Creando usuarios...');
+export const seedDatabase = async (): Promise<void> => {
+  console.log('🌱 Agregando datos de demostración sin borrar datos existentes...');
+
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
-  const users = await User.create(
-    USER_SEEDS.map((user, index) => ({
-      ...user,
-      passwordHash,
-      avatarUrl: AVATARS[index % AVATARS.length],
-    })),
-  );
+
+  // Crear solamente los usuarios de demo que no existan.
+  const users = [];
+
+  for (const [index, seed] of USER_SEEDS.entries()) {
+    let user = await User.findOne({ email: seed.email });
+
+    if (!user) {
+      user = await User.create({
+        ...seed,
+        passwordHash,
+        avatarUrl: AVATARS[index % AVATARS.length],
+      });
+
+      console.log(`👤 Usuario creado: ${seed.username}`);
+    } else {
+      console.log(`↪️ Usuario existente: ${seed.username}`);
+    }
+
+    users.push(user);
+  }
+
   const userIds = users.map((user) => user._id as Types.ObjectId);
 
-  console.log(`🖼️  Creando ${MEME_SEEDS.length} memes...`);
-  const memes = await Meme.create(
-    MEME_SEEDS.map((seed, index) => {
+  // Crear memes de demo sin duplicar los existentes.
+  const memes = [];
+
+  for (const [index, seed] of MEME_SEEDS.entries()) {
+    const author = userIds[index % userIds.length];
+
+    let meme = await Meme.findOne({
+      title: seed.title,
+      author,
+    });
+
+    if (!meme) {
       const likedBy = pickUsers(userIds, seed.likes);
       const dislikedBy = pickUsers(userIds, seed.dislikes);
-      return {
+
+      meme = await Meme.create({
         title: seed.title,
         imageUrl: `https://picsum.photos/seed/momo${index}/640/480`,
-        author: userIds[index % userIds.length],
+        author,
         status: seed.status,
         tags: seed.tags,
         likedBy,
         dislikedBy,
         likes: likedBy.length,
         dislikes: dislikedBy.length,
-      };
-    }),
-  );
+      });
 
-  console.log(`💬 Creando ${COMMENT_SEEDS.length} comentarios...`);
+      console.log(`🖼️ Meme creado: ${seed.title}`);
+    }
+
+    memes.push(meme);
+  }
+
+  // Crear comentarios solamente cuando no existan.
   for (const seed of COMMENT_SEEDS) {
     const meme = memes[seed.meme];
-    if (!meme) continue;
+    const author = userIds[seed.author];
+
+    if (!meme || !author) continue;
+
+    const existingComment = await Comment.findOne({
+      memeId: meme._id,
+      author,
+      content: seed.content,
+    });
+
+    if (existingComment) continue;
+
     const likedBy = pickUsers(userIds, seed.likes);
+
     const comment = await Comment.create({
       content: seed.content,
-      author: userIds[seed.author],
+      author,
       parentId: meme._id,
       parentType: 'Meme',
       memeId: meme._id,
@@ -117,19 +155,24 @@ export const seedDatabase = async (): Promise<void> => {
       likes: likedBy.length,
       dislikes: 0,
     });
+
     await comment.updateScore();
   }
 
-  console.log('🧮 Recalculando puntajes...');
+  // Recalcular puntajes.
+  console.log('🧮 Actualizando puntajes de demostración...');
+
   for (const meme of memes) {
     await meme.updateScore();
   }
+
   for (const user of users) {
     await user.updateScore();
   }
 
-  console.log('✅ Seed completado.');
-  console.log(`   Usuarios: ${users.length} (contraseña de todos: "${DEMO_PASSWORD}")`);
-  console.log(`   Memes: ${memes.length} | Comentarios: ${COMMENT_SEEDS.length}`);
-  console.log('   Ejemplo de login: creator@memes.com / password123');
+  console.log('✅ Datos de demostración preparados.');
+  console.log(`   Usuarios de demo: ${users.length}`);
+  console.log(`   Memes de demo: ${memes.length}`);
+  console.log('   Contraseña de usuarios nuevos: password123');
+  console.log('   Moderador de demo: admin@memes.com');
 };

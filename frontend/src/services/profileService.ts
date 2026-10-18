@@ -46,3 +46,9 @@ export async function updateMyProfile(
     body: changes,
   });
 }
+
+export async function deleteMyMeme(memeId: string): Promise<void> {
+  await apiFetch(`/memes/${encodeURIComponent(memeId)}`, {
+    method: 'DELETE',
+  });
+}

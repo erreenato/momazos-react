@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
+import { unlink } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Meme, type IMeme } from '../models/Meme.js';
 import { Comment } from '../models/Comment.js';
 import { User } from '../models/User.js';
@@ -9,7 +12,6 @@ type ReactionType = 'like' | 'dislike';
 type MemeWithAuthor = Omit<IMeme, 'author'> & {
   author: Types.ObjectId | { _id: Types.ObjectId; username: string };
 };
-
 /**
  * Convierte un meme (posiblemente poblado con su autor) en la respuesta pública:
  * oculta quién votó y expone `myReaction` para que el frontend sepa si este
@@ -45,7 +47,6 @@ const serializeMeme = (meme: MemeWithAuthor, viewerId?: string) => {
     myReaction,
   };
 };
-
 const isMemeOwnerOrModerator = (meme: IMeme, req: Request): boolean =>
   req.user?.role === 'moderator' || String(meme.author) === req.user?.id;
 
@@ -192,11 +193,50 @@ export const deleteMeme = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    const commentAuthors = await Comment.distinct('author', {
+      memeId: meme._id,
+    });
+
     await Comment.deleteMany({ memeId: meme._id });
     await Meme.deleteOne({ _id: meme._id });
 
-    const author = await User.findById(meme.author);
-    if (author) await author.updateScore();
+    const affectedUserIds = new Set<string>([
+      String(meme.author),
+      ...commentAuthors.map((author) => String(author)),
+    ]);
+
+    for (const affectedUserId of affectedUserIds) {
+      const user = await User.findById(affectedUserId);
+      if (user) await user.updateScore();
+    }
+
+    try {
+      const imageUrl = new URL(meme.imageUrl);
+      const expectedOrigin = `${req.protocol}://${req.get('host')}`;
+
+      if (
+        imageUrl.origin === expectedOrigin &&
+        /^\/uploads\/[^/]+$/.test(imageUrl.pathname)
+      ) {
+        const filename = path.basename(imageUrl.pathname);
+        const currentDir = path.dirname(fileURLToPath(import.meta.url));
+        const uploadsDir = path.resolve(currentDir, '../../uploads');
+
+        await unlink(path.join(uploadsDir, filename)).catch((error: unknown) => {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'ENOENT'
+          ) {
+            return;
+          }
+          throw error;
+        });
+      }
+    } catch (error) {
+      console.error('No se pudo eliminar la imagen local:', error);
+    }
 
     res.status(204).end();
   } catch (error) {
