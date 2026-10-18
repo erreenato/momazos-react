@@ -8,6 +8,7 @@ import userRoutes from './routes/user.routes.js';
 import commentRoutes from './routes/comment.routes.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { errorHandler, notFoundHandler } from './middleware/errors.js';
 
 const app: Application = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,4 +38,8 @@ app.use('/api', moderationRoutes);
 app.use('/api/memes', memeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/comments', commentRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
 export default app;

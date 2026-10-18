@@ -82,6 +82,10 @@ export const reactToMeme = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ error: 'Tipo de reacción inválido. Debe ser "like" o "dislike".' });
       return;
     }
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
 
     // 2. Buscar el meme
     const meme = await Meme.findById(id);

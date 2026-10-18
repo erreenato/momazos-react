@@ -33,7 +33,19 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    let targetMemeId = parentId;
+    if (
+      typeof content !== 'string' ||
+      !content.trim() ||
+      content.trim().length > 2000 ||
+      typeof parentId !== 'string' ||
+      !Types.ObjectId.isValid(parentId) ||
+      (parentType !== 'Meme' && parentType !== 'Comment')
+    ) {
+      res.status(400).json({ error: 'Contenido, parentId o parentType inválidos.' });
+      return;
+    }
+
+    let targetMemeId: string | Types.ObjectId = parentId;
 
     // Si le responde a otro comentario, traemos el memeId de ese comentario padre
     if (parentType === 'Comment') {
@@ -45,9 +57,15 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
       targetMemeId = parentComment.memeId;
     }
 
+    const targetMeme = await Meme.findById(targetMemeId);
+    if (!targetMeme) {
+      res.status(404).json({ error: 'El meme al que intentas comentar no existe.' });
+      return;
+    }
+
     // 1. Guardar el nuevo comentario con su memeId asignado
     const newComment = new Comment({
-      content,
+      content: content.trim(),
       author: userId,
       parentId,
       parentType,
@@ -80,6 +98,11 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
 export const getMemeComments = async (req: Request, res: Response): Promise<void> => {
   try {
     const { memeId } = req.params;
+    if (typeof memeId !== 'string' || !Types.ObjectId.isValid(memeId)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
+
     const comments = (await Comment.find({ memeId })
       .populate('author', 'username avatarUrl')
       .sort({ createdAt: -1 })) as CommentDocument[];
@@ -103,6 +126,10 @@ export const reactToComment = async (req: Request, res: Response): Promise<void>
     }
     if (type !== 'like' && type !== 'dislike') {
       res.status(400).json({ error: 'Tipo de reacción inválido. Debe ser "like" o "dislike".' });
+      return;
+    }
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de comentario inválido.' });
       return;
     }
 

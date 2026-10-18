@@ -2,6 +2,7 @@
 import multer from 'multer';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { HttpError } from './errors.js';
 
 const storage = multer.diskStorage({
     destination: (_req, _file, callback) => {
@@ -22,7 +23,7 @@ export const uploadMemeImage = multer({
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
         if (!allowedTypes.includes(file.mimetype)) {
-            callback(new Error('Solo se permiten imágenes JPG, PNG o WebP.'));
+            callback(new HttpError(400, 'Solo se permiten imágenes JPG, PNG o WebP.'));
             return;
         }
 
