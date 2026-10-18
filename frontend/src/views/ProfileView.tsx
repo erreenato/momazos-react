@@ -6,6 +6,7 @@ import {
   getUserById,
   getUserMemes,
   updateMyProfile,
+  deleteMyMeme,
 } from '../services/profileService';
 import type { User, Meme } from '../types';
 import './ProfileView.css';
@@ -118,6 +119,9 @@ function ProfileContent({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [userMemes, setUserMemes] = useState<Meme[]>(memes);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState('');
 
   const [draft, setDraft] = useState({
     description: initialUser.description ?? '',
@@ -126,11 +130,11 @@ function ProfileContent({
 
   const isModerator = user.role === 'moderator';
 
-  const approvedMemes = memes.filter(
+  const approvedMemes = userMemes.filter(
     (meme) => meme.status === 'approved',
   );
 
-  const totalLikes = memes.reduce(
+  const totalLikes = userMemes.reduce(
     (total, meme) => total + meme.likes,
     0,
   );
@@ -175,6 +179,41 @@ function ProfileContent({
     }
   };
 
+  const handleDeleteMeme = async (meme: Meme) => {
+    if (!isOwner || deletingId) return;
+
+    const confirmed = window.confirm(
+      `¿Estás segura de que quieres eliminar "${meme.title}"?\n\nEsta acción no se puede deshacer.`,
+    );
+
+    if (!confirmed) return;
+
+    setDeletingId(meme.id);
+    setDeleteError('');
+
+    try {
+      await deleteMyMeme(meme.id);
+
+      setUserMemes((current) =>
+        current.filter((item) => item.id !== meme.id),
+      );
+
+      // Consultar el perfil actualizado para reflejar el nuevo puntaje.
+      const updatedUser = await getUserById(user.id);
+
+      if (updatedUser) {
+        setUser(updatedUser);
+      }
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar el meme.',
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const showAvatar = editing ? draft.avatarUrl : user.avatarUrl;
 
   return (
@@ -298,9 +337,14 @@ function ProfileContent({
           {isOwner
             ? 'Mis memes'
             : `Memes de ${user.username}`}
+          {deleteError && (
+            <p className="empty" role="alert">
+              {deleteError}
+            </p>
+          )}
         </h3>
 
-        {memes.length === 0 ? (
+        {userMemes.length === 0 ? (
           <p className="empty">
             {isOwner
               ? 'Aún no has publicado memes.'
@@ -308,7 +352,7 @@ function ProfileContent({
           </p>
         ) : (
           <div className="memes-grid">
-            {memes.map((meme) => (
+            {userMemes.map((meme) => (
               <article
                 className="profile-meme-card"
                 key={meme.id}
@@ -334,6 +378,16 @@ function ProfileContent({
                   </p>
                   <p className="meme-likes">
                     {meme.likes} likes · {meme.dislikes} dislikes
+                    {isOwner && (
+                      <button
+                        type="button"
+                        className="btn btn-delete-meme"
+                        onClick={() => void handleDeleteMeme(meme)}
+                        disabled={deletingId !== null}
+                      >
+                        {deletingId === meme.id ? 'Eliminando…' : 'Eliminar meme'}
+                      </button>
+                    )}
                   </p>
                 </div>
               </article>
