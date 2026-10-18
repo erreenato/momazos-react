@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { getApprovedMemes } from '../api/meme';
 import { MemeFeed } from './MemeDetailView';
@@ -22,6 +23,7 @@ export function HomeView() {
       </div>
     );
   }
+
 
   return (
     <div className="home-container">

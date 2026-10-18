@@ -92,14 +92,14 @@ export const optionalAuth = (req: Request, _res: Response, next: NextFunction): 
 /** Debe usarse después de `requireAuth`. Responde 403 si el rol no está permitido. */
 export const requireRole =
   (...roles: Role[]) =>
-  (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.user) {
-      res.status(401).json({ error: 'No autenticado' });
-      return;
-    }
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'No tienes permisos para esta acción' });
-      return;
-    }
-    next();
-  };
+    (req: Request, res: Response, next: NextFunction): void => {
+      if (!req.user) {
+        res.status(401).json({ error: 'No autenticado' });
+        return;
+      }
+      if (!roles.includes(req.user.role)) {
+        res.status(403).json({ error: 'No tienes permisos para esta acción' });
+        return;
+      }
+      next();
+    };

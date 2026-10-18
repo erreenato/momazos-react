@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -31,6 +32,7 @@ function App() {
 
                 <Route element={<ProtectedRoute />}>
                   <Route path="/perfil" element={<ProfileView />} />
+                  <Route path="/perfil/:id" element={<ProfileView />} />
                   <Route path="/subir" element={<SubirPost />} />
                 </Route>
 
@@ -41,7 +43,8 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
-            {/* El ranking lateral obtiene los datos por sí mismo desde la API */}
+
+            {/* Ranking lateral conectado a la API */}
             <WeeklyRanking />
           </div>
         </div>

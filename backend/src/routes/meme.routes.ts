@@ -1,24 +1,30 @@
+
 import { Router } from 'express';
 import {
-  getMemeAntiRanking,
-  getMemeRanking,
-  getMemes,
-  reactToMeme,
+    getMemeAntiRanking,
+    getMemeRanking,
+    getMemes,
+    reactToMeme,
+    createMeme,
 } from '../controllers/meme.controller.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
+import { uploadMemeImage } from '../middleware/upload.js';
 
 const router = Router();
 
-// ⚠️ DEBE SER '/' PARA QUE SEA /api/memes
+// Listar memes
 router.get('/', optionalAuth, getMemes);
 
-// GET /api/memes/ranking (⚠️ IMPORTANTE: poner antes de /:id)
+// Publicar un meme con imagen
+router.post('/', requireAuth, uploadMemeImage, createMeme);
+
+// Ranking de memes
 router.get('/ranking', optionalAuth, getMemeRanking);
 
-// GET /api/memes/anti-ranking (también antes de /:id)
+// Anti-ranking de memes
 router.get('/anti-ranking', optionalAuth, getMemeAntiRanking);
 
-// Endpoint para dar Like o Dislike a un meme (solo usuarios registrados)
+// Dar like o dislike (requiere autenticación)
 router.post('/:id/react', requireAuth, reactToMeme);
 
 export default router;

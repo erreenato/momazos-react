@@ -147,16 +147,81 @@ export const getMemeRanking = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// GET /api/memes/anti-ranking
-export const getMemeAntiRanking = async (req: Request, res: Response): Promise<void> => {
+
+/**
+ * GET /api/memes/anti-ranking
+ * Obtiene los 10 memes aprobados con peor puntaje.
+ */
+export const getMemeAntiRanking = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    // El orden inverso al ranking: primero los peores puntajes (pueden ser negativos).
     const worstMemes = await Meme.find({ status: 'approved' })
       .populate('author', 'username')
       .sort({ score: 1, likes: 1 })
       .limit(10);
-    res.json(worstMemes.map((meme) => serializeMeme(meme as unknown as MemeWithAuthor, req.user?.id)));
+
+    res.json(
+      worstMemes.map((meme) =>
+        serializeMeme(meme as unknown as MemeWithAuthor, req.user?.id)
+      )
+    );
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener el anti-ranking de memes' });
+    console.error('Error al obtener anti-ranking de memes:', error);
+    res.status(500).json({
+      error: 'Error al obtener el anti-ranking de memes',
+    });
+  }
+};
+
+/**
+ * POST /api/memes
+ * Publica un meme asociado al usuario autenticado.
+ * Los memes nuevos quedan pendientes de moderación.
+ */
+export const createMeme = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'No autenticado' });
+      return;
+    }
+
+    const { title, imageUrl } = req.body ?? {};
+
+    const finalImageUrl = req.file
+      ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
+      : imageUrl;
+
+    if (
+      typeof title !== 'string' ||
+      !title.trim() ||
+      title.trim().length > 200 ||
+      typeof finalImageUrl !== 'string' ||
+      !/^https?:\/\/\S+$/i.test(finalImageUrl.trim()) ||
+      finalImageUrl.trim().length > 2048
+    ) {
+      res.status(400).json({
+        error: 'Debes ingresar un título y una URL de imagen válidos.',
+      });
+      return;
+    }
+
+    const meme = await Meme.create({
+      title: title.trim(),
+      imageUrl: finalImageUrl.trim(),
+      author: req.user.id,
+      status: 'pending',
+    });
+
+    res.status(201).json(meme);
+  } catch (error) {
+    console.error('Error al publicar meme:', error);
+    res.status(500).json({
+      error: 'No se pudo publicar el meme.',
+    });
   }
 };

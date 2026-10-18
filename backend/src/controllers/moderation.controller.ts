@@ -47,12 +47,24 @@ export const updateMemeStatus = async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  const meme = await Meme.findByIdAndUpdate(id, { status }, { returnDocument: 'after', runValidators: true })
-    .populate<{ author: IUser | null }>('author');
+
+  const meme = await Meme.findById(id);
+
   if (!meme) {
     res.status(404).json({ error: 'Meme no encontrado' });
     return;
   }
 
-  res.json(toPublicMeme(meme));
+  // Actualizar estado y recalcular el puntaje.
+  meme.status = status;
+  await meme.updateScore();
+
+  // Obtener el autor para construir la respuesta pública.
+
+  const populatedMeme = await meme.populate<{
+    author: IUser | null;
+  }>('author');
+
+  res.json(toPublicMeme(populatedMeme));
+
 };

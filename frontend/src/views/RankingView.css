@@ -30,15 +30,18 @@
   align-items: center;
   gap: 12px;
 }
+
 .ranking-emoji {
   font-size: 26px;
   line-height: 1;
 }
+
 .ranking-header h2 {
   margin: 0;
   font-size: 22px;
   color: var(--text-h);
 }
+
 .ranking-subtitle {
   margin: 2px 0 0;
   font-size: 12.5px;
@@ -63,10 +66,12 @@
   cursor: pointer;
   transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
+
 .tab-button:hover {
   border-color: var(--accent-border);
   color: var(--text-h);
 }
+
 .tab-button.active {
   background: var(--accent-bg);
   border-color: var(--accent-border);
@@ -78,6 +83,7 @@
   padding: 28px 0;
   color: var(--text);
 }
+
 .ranking-status--error {
   color: #e03131;
 }
@@ -102,6 +108,7 @@
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
   color: var(--text-h);
 }
+
 .ranking-item:hover {
   border-color: var(--accent-border);
   transform: translateY(-1px);
@@ -163,6 +170,7 @@
   gap: 10px;
   font-weight: 600;
 }
+
 .ranking-user-avatar {
   width: 28px;
   height: 28px;
@@ -182,6 +190,7 @@
   text-align: right;
   font-weight: 700;
 }
+
 .score-negative {
   color: #e03131;
 }
@@ -193,19 +202,48 @@
   text-overflow: ellipsis;
 }
 
+/* Diseño adaptable para pantallas pequeñas */
 @media (max-width: 560px) {
   .ranking-container {
     padding: 18px 16px;
   }
+
   .meme-grid {
     grid-template-columns: 44px 1fr 70px 60px;
     gap: 0.5rem;
   }
+
   .user-grid {
     grid-template-columns: 44px 1fr 60px;
     gap: 0.5rem;
   }
+
   .author-name {
     font-size: 0.82rem;
   }
+}
+
+/* Estados de moderación de memes */
+.meme-status {
+  display: inline-block;
+  padding: 5px 10px;
+  margin: 6px 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-rejected {
+  background-color: #f8d7da;
+  color: #721c24;
 }

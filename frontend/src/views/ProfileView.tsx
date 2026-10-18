@@ -1,56 +1,178 @@
-import { useState } from 'react';
-import { mockUsers, mockMemes } from '../mockData';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
+import {
+  getUserById,
+  getUserMemes,
+  updateMyProfile,
+} from '../services/profileService';
 import type { User, Meme } from '../types';
 import './ProfileView.css';
 
+interface ProfileData {
+  id: string;
+  user: User | null;
+  memes: Meme[];
+}
+
+
 const statusLabels: Record<Meme['status'], string> = {
-  approved: 'Aprobado',
   pending: 'Pendiente',
+  approved: 'Aprobado',
   rejected: 'Rechazado',
 };
 
+
 export function ProfileView() {
-  const initial = mockUsers[0];
-  const [user, setUser] = useState<User>(initial);
+  const { id } = useParams<{ id: string }>();
+  const { user: viewer, loading: authLoading } = useAuth();
+
+  const profileId = id ?? viewer?.id;
+
+  const [data, setData] = useState<ProfileData | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!profileId || authLoading) return;
+
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setError('');
+
+        const user = await getUserById(profileId!);
+        const memes = user ? await getUserMemes(profileId!) : [];
+
+        if (!cancelled) {
+          setData({ id: profileId!, user, memes });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'No se pudo cargar el perfil.',
+          );
+        }
+      }
+    }
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId, authLoading]);
+
+  if (authLoading || !profileId || (data?.id !== profileId && !error)) {
+    return (
+      <div className="profile-view">
+        <p className="empty">Cargando perfil…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="profile-view">
+        <p className="empty" role="alert">{error}</p>
+      </div>
+    );
+  }
+
+  if (!data?.user) {
+    return (
+      <div className="profile-view">
+        <p className="empty">No encontramos a este usuario.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ProfileContent
+      key={data.user.id}
+      initialUser={data.user}
+      memes={data.memes}
+      isOwner={viewer?.id === data.user.id}
+      viewerIsModerator={viewer?.role === 'moderator'}
+    />
+  );
+}
+
+interface ProfileContentProps {
+  initialUser: User;
+  memes: Meme[];
+  isOwner: boolean;
+  viewerIsModerator: boolean;
+}
+
+function ProfileContent({
+  initialUser,
+  memes,
+  isOwner,
+  viewerIsModerator,
+}: ProfileContentProps) {
+  const [user, setUser] = useState<User>(initialUser);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
   const [draft, setDraft] = useState({
-    username: initial.username,
-    description: initial.description ?? '',
-    avatarUrl: initial.avatarUrl ?? '',
+    description: initialUser.description ?? '',
+    avatarUrl: initialUser.avatarUrl ?? '',
   });
 
-  const userMemes: Meme[] = mockMemes.filter(
-    (meme) => typeof meme.author !== 'string' && meme.author.id === user.id,
+  const isModerator = user.role === 'moderator';
+
+  const approvedMemes = memes.filter(
+    (meme) => meme.status === 'approved',
   );
 
-  const isModerator = user.role === 'moderator';
-  const totalLikes = userMemes.reduce((total, meme) => total + meme.likes, 0);
-  const pendingCount = userMemes.filter((meme) => meme.status === 'pending').length;
+  const totalLikes = memes.reduce(
+    (total, meme) => total + meme.likes,
+    0,
+  );
 
   const stats = [
     { label: 'Puntaje', value: user.score },
-    { label: 'Memes', value: userMemes.length },
+    { label: 'Memes aprobados', value: approvedMemes.length },
     { label: 'Me gusta', value: totalLikes },
-    { label: 'En moderación', value: pendingCount },
   ];
 
   const startEditing = () => {
     setDraft({
-      username: user.username,
       description: user.description ?? '',
       avatarUrl: user.avatarUrl ?? '',
     });
+    setSaveError('');
     setEditing(true);
   };
 
-  const saveChanges = () => {
-    setUser((prev) => ({
-      ...prev,
-      username: draft.username.trim() || prev.username,
-      description: draft.description.trim() || undefined,
-      avatarUrl: draft.avatarUrl.trim() || undefined,
-    }));
-    setEditing(false);
+  const saveChanges = async () => {
+    if (saving) return;
+
+    setSaving(true);
+    setSaveError('');
+
+    try {
+      const updatedUser = await updateMyProfile({
+        description: draft.description.trim(),
+        avatarUrl: draft.avatarUrl.trim(),
+      });
+
+      setUser(updatedUser);
+      setEditing(false);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudieron guardar los cambios.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const showAvatar = editing ? draft.avatarUrl : user.avatarUrl;
@@ -62,11 +184,11 @@ export function ProfileView() {
           <img
             className="profile-avatar-image"
             src={showAvatar}
-            alt={`Avatar de ${editing ? draft.username : user.username}`}
+            alt={`Avatar de ${user.username}`}
           />
         ) : (
           <div className="profile-avatar">
-            {(editing ? draft.username : user.username).charAt(0).toUpperCase()}
+            {user.username.charAt(0).toUpperCase()}
           </div>
         )}
 
@@ -74,42 +196,57 @@ export function ProfileView() {
           {editing ? (
             <div className="edit-form">
               <label className="field">
-                <span className="field-label">Nombre de usuario</span>
-                <input
-                  value={draft.username}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, username: e.target.value }))
-                  }
-                />
-              </label>
-
-              <label className="field">
                 <span className="field-label">Descripción</span>
                 <textarea
                   value={draft.description}
                   rows={3}
+                  maxLength={500}
                   onChange={(e) =>
-                    setDraft((d) => ({ ...d, description: e.target.value }))
+                    setDraft((d) => ({
+                      ...d,
+                      description: e.target.value,
+                    }))
                   }
                 />
               </label>
 
               <label className="field">
-                <span className="field-label">URL de la imagen de perfil</span>
+                <span className="field-label">
+                  URL de la imagen de perfil
+                </span>
                 <input
+                  type="url"
                   placeholder="https://..."
                   value={draft.avatarUrl}
+                  maxLength={2048}
                   onChange={(e) =>
-                    setDraft((d) => ({ ...d, avatarUrl: e.target.value }))
+                    setDraft((d) => ({
+                      ...d,
+                      avatarUrl: e.target.value,
+                    }))
                   }
                 />
               </label>
 
+              {saveError && (
+                <p className="empty" role="alert">{saveError}</p>
+              )}
+
               <div className="edit-actions">
-                <button className="btn btn-primary" onClick={saveChanges}>
-                  Guardar
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => void saveChanges()}
+                  disabled={saving}
+                >
+                  {saving ? 'Guardando…' : 'Guardar'}
                 </button>
-                <button className="btn" onClick={() => setEditing(false)}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setEditing(false)}
+                  disabled={saving}
+                >
                   Cancelar
                 </button>
               </div>
@@ -117,20 +254,30 @@ export function ProfileView() {
           ) : (
             <>
               <div className="profile-title-row">
-                <h2 className="profile-username">{user.username}</h2>
+                <h2 className="profile-username">
+                  {user.username}
+                </h2>
+
                 <span
-                  className={`profile-role ${
-                    isModerator ? 'role-admin' : 'role-user'
-                  }`}
+                  className={`profile-role ${isModerator ? 'role-admin' : 'role-user'
+                    }`}
                 >
                   {isModerator ? 'Administrador' : 'Usuario'}
                 </span>
-                <button className="btn btn-edit" onClick={startEditing}>
-                  Editar perfil
-                </button>
+
+                {isOwner && (
+                  <button
+                    type="button"
+                    className="btn btn-edit"
+                    onClick={startEditing}
+                  >
+                    Editar perfil
+                  </button>
+                )}
               </div>
+
               <p className="profile-description">
-                {user.description ?? 'Sin descripción.'}
+                {user.description || 'Sin descripción.'}
               </p>
             </>
           )}
@@ -147,24 +294,44 @@ export function ProfileView() {
       </section>
 
       <section className="profile-memes">
-        <h3 className="section-title">Mis memes</h3>
-        {userMemes.length === 0 ? (
-          <p className="empty">Este usuario aún no ha subido memes.</p>
+        <h3 className="section-title">
+          {isOwner
+            ? 'Mis memes'
+            : `Memes de ${user.username}`}
+        </h3>
+
+        {memes.length === 0 ? (
+          <p className="empty">
+            {isOwner
+              ? 'Aún no has publicado memes.'
+              : 'Este usuario aún no tiene memes disponibles.'}
+          </p>
         ) : (
           <div className="memes-grid">
-            {userMemes.map((meme) => (
-              <article className="meme-card" key={meme.id}>
+            {memes.map((meme) => (
+              <article
+                className="profile-meme-card"
+                key={meme.id}
+              >
                 <img
                   className="meme-image"
                   src={meme.imageUrl}
                   alt={meme.title}
                 />
+
                 <div className="meme-body">
-                  <span className={`meme-status status-${meme.status}`}>
-                    {statusLabels[meme.status]}
-                  </span>
                   <p className="meme-title">{meme.title}</p>
-                  <p className="meme-score">Score: {meme.score}</p>
+
+                  {(isOwner || viewerIsModerator) && (
+                    <span className={`meme-status status-${meme.status}`}>
+                      {statusLabels[meme.status]}
+                    </span>
+                  )}
+
+
+                  <p className="meme-score">
+                    Score: {meme.score}
+                  </p>
                   <p className="meme-likes">
                     {meme.likes} likes · {meme.dislikes} dislikes
                   </p>

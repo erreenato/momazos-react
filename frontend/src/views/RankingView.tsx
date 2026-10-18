@@ -1,7 +1,13 @@
+
 import { useEffect, useState } from 'react';
-import { getBottomMemes, getBottomUsers, getTopMemes, getTopUsers } from '../api/meme';
-import type { Meme } from '../types';
+import {
+  getBottomMemes,
+  getBottomUsers,
+  getTopMemes,
+  getTopUsers,
+} from '../api/meme';
 import type { RankingUser } from '../api/meme';
+import type { Meme } from '../types';
 import './RankingView.css';
 
 type RankingVariant = 'top' | 'anti';
@@ -42,19 +48,29 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
 
   useEffect(() => {
     let cancelled = false;
-    const load = variant === 'top'
-      ? Promise.all([getTopMemes(), getTopUsers()])
-      : Promise.all([getBottomMemes(), getBottomUsers()]);
+
+    setLoading(true);
+    setError(null);
+
+    const load =
+      variant === 'top'
+        ? Promise.all([getTopMemes(), getTopUsers()])
+        : Promise.all([getBottomMemes(), getBottomUsers()]);
 
     load
       .then(([memesData, usersData]) => {
         if (cancelled) return;
+
         setMemes(memesData);
         setUsers(usersData);
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error(`Error al cargar ${variant === 'top' ? 'ranking' : 'anti-ranking'}:`, err);
+
+        console.error(
+          `Error al cargar ${variant === 'top' ? 'ranking' : 'anti-ranking'}:`,
+          err
+        );
         setError('No se pudo cargar la tabla. Intenta de nuevo más tarde.');
       })
       .finally(() => {
@@ -67,10 +83,16 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
   }, [variant]);
 
   return (
-    <div className={`ranking-container${variant === 'anti' ? ' ranking-container--inverted' : ''}`}>
+    <div
+      className={`ranking-container${variant === 'anti' ? ' ranking-container--inverted' : ''
+        }`}
+    >
       <header className="ranking-header">
         <div className="ranking-heading">
-          <span className="ranking-emoji" aria-hidden="true">{config.emoji}</span>
+          <span className="ranking-emoji" aria-hidden="true">
+            {config.emoji}
+          </span>
+
           <div>
             <h2>{config.title}</h2>
             <p className="ranking-subtitle">{config.subtitle}</p>
@@ -85,6 +107,7 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
           >
             Momos
           </button>
+
           <button
             type="button"
             className={`tab-button ${tab === 'users' ? 'active' : ''}`}
@@ -96,9 +119,13 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
       </header>
 
       {loading ? (
-        <p className="ranking-status">Cargando {config.title.toLowerCase()}...</p>
+        <p className="ranking-status">
+          Cargando {config.title.toLowerCase()}...
+        </p>
       ) : error ? (
-        <p className="ranking-status ranking-status--error" role="alert">{error}</p>
+        <p className="ranking-status ranking-status--error" role="alert">
+          {error}
+        </p>
       ) : (
         <div className="ranking-table">
           {tab === 'memes' ? (
@@ -109,16 +136,31 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
                 <span>Autor</span>
                 <span className="score-cell">Puntaje</span>
               </div>
+
               <ul className="ranking-list">
                 {memes.length === 0 ? (
-                  <li className="ranking-empty">Todavía no hay momos para mostrar.</li>
+                  <li className="ranking-empty">
+                    Todavía no hay momos para mostrar.
+                  </li>
                 ) : (
                   memes.map((meme, index) => (
                     <li key={meme.id} className="ranking-item meme-grid">
-                      <strong className="ranking-position">#{index + 1}</strong>
-                      <span className="truncate" title={meme.title}>{meme.title}</span>
-                      <span className="author-name">{getAuthorName(meme.author)}</span>
-                      <span className={`score-cell${meme.score < 0 ? ' score-negative' : ''}`}>
+                      <strong className="ranking-position">
+                        #{index + 1}
+                      </strong>
+
+                      <span className="truncate" title={meme.title}>
+                        {meme.title}
+                      </span>
+
+                      <span className="author-name">
+                        {getAuthorName(meme.author)}
+                      </span>
+
+                      <span
+                        className={`score-cell${meme.score < 0 ? ' score-negative' : ''
+                          }`}
+                      >
                         {meme.score} pts
                       </span>
                     </li>
@@ -133,20 +175,33 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
                 <span>Usuario</span>
                 <span className="score-cell">Puntaje</span>
               </div>
+
               <ul className="ranking-list">
                 {users.length === 0 ? (
-                  <li className="ranking-empty">Todavía no hay usuarios para mostrar.</li>
+                  <li className="ranking-empty">
+                    Todavía no hay usuarios para mostrar.
+                  </li>
                 ) : (
                   users.map((user, index) => (
                     <li key={user._id} className="ranking-item user-grid">
-                      <strong className="ranking-position">#{index + 1}</strong>
+                      <strong className="ranking-position">
+                        #{index + 1}
+                      </strong>
+
                       <span className="ranking-user">
-                        <span className="ranking-user-avatar" aria-hidden="true">
+                        <span
+                          className="ranking-user-avatar"
+                          aria-hidden="true"
+                        >
                           {user.username.charAt(0).toUpperCase()}
                         </span>
                         {user.username}
                       </span>
-                      <span className={`score-cell${user.score < 0 ? ' score-negative' : ''}`}>
+
+                      <span
+                        className={`score-cell${user.score < 0 ? ' score-negative' : ''
+                          }`}
+                      >
                         {user.score} pts
                       </span>
                     </li>

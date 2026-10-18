@@ -6,9 +6,16 @@ import moderationRoutes from './routes/moderation.routes.js';
 import memeRoutes from './routes/meme.routes.js';
 import userRoutes from './routes/user.routes.js';
 import commentRoutes from './routes/comment.routes.js';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const app: Application = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+app.use(
+  '/uploads',
+  express.static(path.resolve(__dirname, '../uploads'))
+);
 // Middlewares requeridos
 app.use(express.json());
 app.use(cookieParser());

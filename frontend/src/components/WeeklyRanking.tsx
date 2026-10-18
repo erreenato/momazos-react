@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTopMemes } from '../api/meme';
@@ -11,30 +12,39 @@ function authorName(author: User | string): string {
 }
 
 export function WeeklyRanking({ memes }: { memes?: Meme[] }) {
-  // Si no le pasan memes por props, los pide al backend por su cuenta.
   const [loaded, setLoaded] = useState<Meme[]>(memes ?? []);
   const [loading, setLoading] = useState(memes === undefined);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Si recibe memes por props, ya vienen en el estado inicial: no hay que pedir nada.
-    if (memes !== undefined) return;
+    if (memes !== undefined) {
+      setLoaded(memes);
+      setLoading(false);
+      return;
+    }
 
     let cancelled = false;
+
     getTopMemes()
       .then((data) => {
         if (!cancelled) setLoaded(data);
       })
-      .catch((err) => console.error('Error al cargar ranking lateral:', err))
+      .catch((error) => {
+        console.error('Error al cargar ranking lateral:', error);
+      })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, [memes]);
 
-  const ranked = [...loaded].sort((a, b) => b.score - a.score).slice(0, 5);
+  const ranked = [...loaded]
+    .filter((meme) => meme.status === 'approved')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
 
   return (
     <aside className="weekly-ranking" aria-label="Ranking semanal de memes">
@@ -60,17 +70,28 @@ export function WeeklyRanking({ memes }: { memes?: Meme[] }) {
               role="button"
               tabIndex={0}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') navigate(`/meme/${meme.id}`);
+                if (event.key === 'Enter') {
+                  navigate(`/meme/${meme.id}`);
+                }
               }}
             >
               <span className={`weekly-ranking-rank ${index < 3 ? 'top' : ''}`}>
                 {index < 3 ? MEDALS[index] : index + 1}
               </span>
-              <img className="weekly-ranking-thumb" src={meme.imageUrl} alt="" />
+
+              <img
+                className="weekly-ranking-thumb"
+                src={meme.imageUrl}
+                alt=""
+              />
+
               <div className="weekly-ranking-info">
                 <span className="weekly-ranking-title">{meme.title}</span>
-                <span className="weekly-ranking-author">{authorName(meme.author)}</span>
+                <span className="weekly-ranking-author">
+                  {authorName(meme.author)}
+                </span>
               </div>
+
               <span className="weekly-ranking-score">
                 <svg viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 4 3 18h18L12 4z" />
@@ -82,7 +103,11 @@ export function WeeklyRanking({ memes }: { memes?: Meme[] }) {
         </ol>
       )}
 
-      <button type="button" className="weekly-ranking-more" onClick={() => navigate('/ranking')}>
+      <button
+        type="button"
+        className="weekly-ranking-more"
+        onClick={() => navigate('/ranking')}
+      >
         Ver ranking completo
       </button>
     </aside>
