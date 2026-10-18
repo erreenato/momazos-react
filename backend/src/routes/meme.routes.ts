@@ -6,6 +6,7 @@ import {
     getMemes,
     reactToMeme,
     createMeme,
+    deleteMeme,
 } from '../controllers/meme.controller.js';
 import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { uploadMemeImage } from '../middleware/upload.js';
@@ -26,5 +27,8 @@ router.get('/anti-ranking', optionalAuth, getMemeAntiRanking);
 
 // Dar like o dislike (requiere autenticación)
 router.post('/:id/react', requireAuth, reactToMeme);
+
+// Eliminar un meme propio
+router.delete('/:id', requireAuth, deleteMeme);
 
 export default router;

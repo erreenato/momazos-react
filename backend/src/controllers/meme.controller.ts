@@ -1,6 +1,11 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
+import { unlink } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Meme, type IMeme } from '../models/Meme.js';
+import { Comment } from '../models/Comment.js';
+import { User } from '../models/User.js';
 
 type ReactionType = 'like' | 'dislike';
 
@@ -225,3 +230,106 @@ export const createMeme = async (
     });
   }
 };
+
+
+/**
+ * DELETE /api/memes/:id
+ * Permite que el autor elimine su propio meme.
+ */
+export const deleteMeme = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ error: 'No autenticado.' });
+      return;
+    }
+
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
+
+    const meme = await Meme.findById(id);
+
+    if (!meme) {
+      res.status(404).json({ error: 'Meme no encontrado.' });
+      return;
+    }
+
+    if (String(meme.author) !== userId) {
+      res.status(403).json({
+        error: 'Solo puedes eliminar tus propios memes.',
+      });
+      return;
+    }
+
+    // Obtener los autores de comentarios para recalcular sus puntajes.
+    const commentAuthors = await Comment.distinct('author', {
+      memeId: meme._id,
+    });
+
+    // Eliminar los comentarios y respuestas del meme.
+    await Comment.deleteMany({ memeId: meme._id });
+
+    // Eliminar la publicación.
+    await Meme.deleteOne({ _id: meme._id });
+
+    // Actualizar puntajes de los usuarios afectados.
+    const affectedUserIds = new Set<string>([
+      userId,
+      ...commentAuthors.map((author) => String(author)),
+    ]);
+
+    for (const affectedId of affectedUserIds) {
+      const user = await User.findById(affectedId);
+      if (user) {
+        await user.updateScore();
+      }
+    }
+
+    // Eliminar la imagen solo si pertenece al almacenamiento local.
+    // Nunca se eliminan imágenes externas.
+    try {
+      const imageUrl = new URL(meme.imageUrl);
+      const expectedOrigin = `${req.protocol}://${req.get('host')}`;
+
+      if (
+        imageUrl.origin === expectedOrigin &&
+        /^\/uploads\/[^/]+$/.test(imageUrl.pathname)
+      ) {
+        const filename = path.basename(imageUrl.pathname);
+        const currentDir = path.dirname(fileURLToPath(import.meta.url));
+        const uploadsDir = path.resolve(currentDir, '../../uploads');
+
+        await unlink(path.join(uploadsDir, filename)).catch((error: unknown) => {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            error.code === 'ENOENT'
+          ) {
+            return;
+          }
+          throw error;
+        });
+      }
+    } catch (error) {
+      // El meme ya se eliminó de MongoDB; un error de archivo
+      // no debe convertir la respuesta en un fallo de eliminación.
+      console.error('No se pudo eliminar la imagen local:', error);
+    }
+
+    res.json({ message: 'Meme eliminado correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar meme:', error);
+    res.status(500).json({
+      error: 'No se pudo eliminar el meme.',
+    });
+  }
+};
+
