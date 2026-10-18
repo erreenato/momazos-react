@@ -1,29 +1,168 @@
-
 import { after, before, beforeEach, describe, test } from 'node:test';
-import assert from 'node:assert/strict';
-import { User } from '../../src/models/User.js';
+import assert from 'node:assert';
+import { Comment } from '../../src/models/Comment.js';
 import { Meme } from '../../src/models/Meme.js';
+import { User } from '../../src/models/User.js';
 import {
-    api,
-    connectTestDb,
-    closeTestDb,
-    resetDb,
-    login,
-    normalUser,
-    moderatorUser,
-    nonExistingId,
+  api,
+  closeTestDb,
+  connectTestDb,
+  login,
+  moderatorUser,
+  nonExistingId,
+  normalUser,
+  resetDb,
+  type TestSession,
 } from '../test_helper.js';
 
+let user: TestSession;
+let moderator: TestSession;
+
 before(async () => {
-    await connectTestDb();
+  await connectTestDb();
 });
 
 beforeEach(async () => {
-    await resetDb();
+  await resetDb();
+  user = await login({ email: normalUser.email, password: normalUser.password });
+  moderator = await login({ email: moderatorUser.email, password: moderatorUser.password });
 });
 
 after(async () => {
-    await closeTestDb();
+  await closeTestDb();
+});
+
+describe('GET /api/users', () => {
+  test('lists public user data without credentials', async () => {
+    const result = await api.get('/api/users').expect(200);
+
+    assert.strictEqual(result.body.length, 2);
+    assert(result.body.every((entry: Record<string, unknown>) => !('email' in entry)));
+    assert(result.body.every((entry: Record<string, unknown>) => !('passwordHash' in entry)));
+  });
+});
+
+describe('POST /api/users', () => {
+  test('creates a regular user using the registration flow', async () => {
+    const result = await api
+      .post('/api/users')
+      .send({ username: 'NuevoUsuario', email: 'nuevo@users.test', password: 'secreto789' })
+      .expect(201);
+
+    assert.strictEqual(result.body.username, 'NuevoUsuario');
+    assert.strictEqual(result.body.role, 'user');
+    assert(!('passwordHash' in result.body));
+  });
+});
+
+describe('PATCH /api/users/:id', () => {
+  test('allows the owner to update public account fields', async () => {
+    const currentUser = await User.findOne({ username: normalUser.username });
+    const result = await api
+      .patch(`/api/users/${String(currentUser?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ username: 'UsuarioEditado', email: 'editado@users.test', description: 'Descripción nueva' })
+      .expect(200);
+
+    assert.strictEqual(result.body.username, 'UsuarioEditado');
+    assert.strictEqual(result.body.description, 'Descripción nueva');
+    assert.strictEqual((await User.findById(currentUser?._id))?.email, 'editado@users.test');
+  });
+
+  test('rejects unauthorized and protected fields', async () => {
+    const target = await User.findOne({ username: moderatorUser.username });
+
+    await api
+      .patch(`/api/users/${String(target?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ description: 'No autorizado' })
+      .expect(403);
+
+    await api
+      .patch(`/api/users/${String(target?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ role: 'user' })
+      .expect(403);
+
+    const currentUser = await User.findOne({ username: normalUser.username });
+    await api
+      .patch(`/api/users/${String(currentUser?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ role: 'moderator' })
+      .expect(400);
+
+    await api
+      .patch(`/api/users/${nonExistingId()}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .send({ description: 'No existe' })
+      .expect(404);
+  });
+
+  test('allows a moderator to update another user', async () => {
+    const target = await User.findOne({ username: normalUser.username });
+
+    await api
+      .patch(`/api/users/${String(target?._id)}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .send({ description: 'Editado por moderación' })
+      .expect(200);
+  });
+});
+
+describe('DELETE /api/users/:id', () => {
+  test('deletes the user and owned content', async () => {
+    const target = await User.findOne({ username: normalUser.username });
+    const meme = await Meme.create({
+      title: 'Meme del usuario',
+      imageUrl: 'https://example.com/user.jpg',
+      author: target?._id,
+    });
+    await Comment.create({
+      content: 'Comentario del usuario',
+      author: target?._id,
+      parentId: meme._id,
+      parentType: 'Meme',
+      memeId: meme._id,
+    });
+
+    await api
+      .delete(`/api/users/${String(target?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .expect(204);
+
+    assert.strictEqual(await User.findById(target?._id), null);
+    assert.strictEqual(await Meme.findById(meme._id), null);
+    assert.strictEqual(await Comment.countDocuments({ memeId: meme._id }), 0);
+  });
+
+  test('rejects unauthorized, invalid and missing users', async () => {
+    const target = await User.findOne({ username: moderatorUser.username });
+
+    await api
+      .delete(`/api/users/${String(target?._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .expect(403);
+
+    await api
+      .delete('/api/users/id-invalido')
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(400);
+
+    await api
+      .delete(`/api/users/${nonExistingId()}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(404);
+  });
 });
 
 describe('GET /api/users/:id', () => {

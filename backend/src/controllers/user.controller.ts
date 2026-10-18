@@ -1,11 +1,78 @@
 
 import type { Request, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { User } from '../models/User.js';
 import { Meme } from '../models/Meme.js';
+import { Comment } from '../models/Comment.js';
 import { toPublicUser } from '../utils/serializers.js';
 
 const RANKING_FIELDS = 'username score avatarUrl';
+const PUBLIC_USER_FIELDS = 'username role description score avatarUrl';
+
+const isOwnerOrModerator = (userId: string, req: Request): boolean =>
+  req.user?.role === 'moderator' || req.user?.id === userId;
+
+const isDuplicateKeyError = (error: unknown): boolean =>
+  error instanceof Error && 'code' in error && error.code === 11000;
+
+const sendUserPersistenceError = (error: unknown, res: Response, action: string): void => {
+  if (error instanceof mongoose.Error.ValidationError) {
+    res.status(400).json({ error: 'Los datos del usuario no son válidos' });
+    return;
+  }
+  if (isDuplicateKeyError(error)) {
+    res.status(409).json({ error: 'El nombre de usuario o email ya está registrado' });
+    return;
+  }
+  console.error(`Error al ${action}:`, error);
+  res.status(500).json({ error: `Error al ${action}` });
+};
+
+const readProfileData = (
+  body: unknown,
+): { valid: true; data: Record<string, unknown> } | { valid: false; message: string } => {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    return { valid: false, message: 'Datos inválidos' };
+  }
+
+  const data = body as Record<string, unknown>;
+  const allowedFields = ['username', 'email', 'description', 'avatarUrl'];
+  if (
+    Object.keys(data).length === 0 ||
+    Object.keys(data).some((key) => !allowedFields.includes(key))
+  ) {
+    return { valid: false, message: 'Campos no permitidos' };
+  }
+
+  if (
+    (data.username !== undefined &&
+      (typeof data.username !== 'string' || !data.username.trim() || data.username.trim().length > 50)) ||
+    (data.email !== undefined &&
+      (typeof data.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()))) ||
+    (data.description !== undefined &&
+      (typeof data.description !== 'string' || data.description.length > 500)) ||
+    (data.avatarUrl !== undefined &&
+      (typeof data.avatarUrl !== 'string' || data.avatarUrl.length > 2048))
+  ) {
+    return { valid: false, message: 'Datos de perfil inválidos' };
+  }
+
+  return { valid: true, data };
+};
+
+// GET /api/users
+export const listUsers = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await User.find()
+      .select(PUBLIC_USER_FIELDS)
+      .sort({ username: 1 });
+
+    res.json(users.map(toPublicUser));
+  } catch (error) {
+    console.error('Error al listar usuarios:', error);
+    res.status(500).json({ error: 'Error al listar usuarios' });
+  }
+};
 
 // GET /api/users/ranking
 export const getUserRanking = async (
@@ -119,31 +186,13 @@ export const updateMyProfile = async (
       return;
     }
 
-    const body: unknown = req.body;
-
-    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-      res.status(400).json({ error: 'Datos inválidos' });
-      return;
-    }
-
+    const body =
+      typeof req.body === 'object' && req.body !== null && !Array.isArray(req.body)
+        ? req.body
+        : {};
     const data = body as Record<string, unknown>;
-    const allowedFields = ['description', 'avatarUrl'];
-
-    if (
-      Object.keys(data).length === 0 ||
-      Object.keys(data).some((key) => !allowedFields.includes(key))
-    ) {
-      res.status(400).json({ error: 'Campos no permitidos' });
-      return;
-    }
-
-    if (
-      (data.description !== undefined &&
-        (typeof data.description !== 'string' || data.description.length > 500)) ||
-      (data.avatarUrl !== undefined &&
-        (typeof data.avatarUrl !== 'string' || data.avatarUrl.length > 2048))
-    ) {
-      res.status(400).json({ error: 'Datos de perfil inválidos' });
+    if (Object.keys(data).some((key) => key !== 'description' && key !== 'avatarUrl') || Object.keys(data).length === 0) {
+      res.status(400).json({ error: 'Solo puedes actualizar description y avatarUrl.' });
       return;
     }
 
@@ -168,5 +217,74 @@ export const updateMyProfile = async (
   } catch (error) {
     console.error('Error al actualizar perfil:', error);
     res.status(500).json({ error: 'Error al actualizar perfil' });
+  }
+};
+
+// PATCH /api/users/:id
+export const updateUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de usuario inválido' });
+      return;
+    }
+    if (!isOwnerOrModerator(id, req)) {
+      res.status(403).json({ error: 'No tienes permisos para modificar este usuario' });
+      return;
+    }
+
+    const parsed = readProfileData(req.body);
+    if (!parsed.valid) {
+      res.status(400).json({ error: parsed.message });
+      return;
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+      return;
+    }
+
+    const { data } = parsed;
+    if (typeof data.username === 'string') user.username = data.username.trim();
+    if (typeof data.email === 'string') user.email = data.email.trim().toLowerCase();
+    if (typeof data.description === 'string') user.description = data.description.trim();
+    if (typeof data.avatarUrl === 'string') user.avatarUrl = data.avatarUrl.trim();
+
+    await user.save();
+    res.json(toPublicUser(user));
+  } catch (error) {
+    sendUserPersistenceError(error, res, 'actualizar usuario');
+  }
+};
+
+// DELETE /api/users/:id
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de usuario inválido' });
+      return;
+    }
+    if (!isOwnerOrModerator(id, req)) {
+      res.status(403).json({ error: 'No tienes permisos para eliminar este usuario' });
+      return;
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      res.status(404).json({ error: 'Usuario no encontrado' });
+      return;
+    }
+
+    const memes = await Meme.find({ author: user._id }).select('_id');
+    const memeIds = memes.map((meme) => meme._id);
+    await Comment.deleteMany({ $or: [{ author: user._id }, { memeId: { $in: memeIds } }] });
+    await Meme.deleteMany({ author: user._id });
+    await User.deleteOne({ _id: user._id });
+
+    res.status(204).end();
+  } catch (error) {
+    sendUserPersistenceError(error, res, 'eliminar usuario');
   }
 };
