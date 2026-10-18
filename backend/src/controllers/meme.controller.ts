@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
 import { Meme, type IMeme } from '../models/Meme.js';
+import { Comment } from '../models/Comment.js';
+import { User } from '../models/User.js';
 
 type ReactionType = 'like' | 'dislike';
 
@@ -44,6 +46,17 @@ const serializeMeme = (meme: MemeWithAuthor, viewerId?: string) => {
   };
 };
 
+const isMemeOwnerOrModerator = (meme: IMeme, req: Request): boolean =>
+  req.user?.role === 'moderator' || String(meme.author) === req.user?.id;
+
+const isValidImageUrl = (value: unknown): value is string =>
+  typeof value === 'string' && /^https?:\/\/\S+$/i.test(value.trim()) && value.trim().length <= 2048;
+
+const serializeSingleMeme = async (meme: IMeme, viewerId?: string) => {
+  const populated = await meme.populate('author', 'username');
+  return serializeMeme(populated as unknown as MemeWithAuthor, viewerId);
+};
+
 // GET /api/memes
 export const getMemes = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -63,6 +76,133 @@ const findViewerReaction = (meme: IMeme, viewerId: string): ReactionType | null 
   if (meme.likedBy.some((id) => String(id) === viewerId)) return 'like';
   if (meme.dislikedBy.some((id) => String(id) === viewerId)) return 'dislike';
   return null;
+};
+
+// GET /api/memes/:id
+export const getMemeById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
+
+    const meme = await Meme.findById(id);
+    if (!meme) {
+      res.status(404).json({ error: 'Meme no encontrado.' });
+      return;
+    }
+
+    const canSeeUnapproved = isMemeOwnerOrModerator(meme, req);
+    if (meme.status !== 'approved' && !canSeeUnapproved) {
+      res.status(404).json({ error: 'Meme no encontrado.' });
+      return;
+    }
+
+    res.json(await serializeSingleMeme(meme, req.user?.id));
+  } catch (error) {
+    console.error('Error al obtener meme:', error);
+    res.status(500).json({ error: 'Error al obtener el meme.' });
+  }
+};
+
+// PATCH /api/memes/:id
+export const updateMeme = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
+
+    const body: unknown = req.body;
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: 'Datos de meme inválidos.' });
+      return;
+    }
+
+    const data = body as Record<string, unknown>;
+    const allowedFields = ['title', 'imageUrl', 'tags'];
+    if (
+      Object.keys(data).length === 0 ||
+      Object.keys(data).some((key) => !allowedFields.includes(key))
+    ) {
+      res.status(400).json({ error: 'Solo se pueden actualizar title, imageUrl y tags.' });
+      return;
+    }
+
+    const meme = await Meme.findById(id);
+    if (!meme) {
+      res.status(404).json({ error: 'Meme no encontrado.' });
+      return;
+    }
+    if (!isMemeOwnerOrModerator(meme, req)) {
+      res.status(403).json({ error: 'No tienes permisos para modificar este meme.' });
+      return;
+    }
+
+    if (
+      data.title !== undefined &&
+      (typeof data.title !== 'string' || !data.title.trim() || data.title.trim().length > 200)
+    ) {
+      res.status(400).json({ error: 'El título no es válido.' });
+      return;
+    }
+    if (data.imageUrl !== undefined && !isValidImageUrl(data.imageUrl)) {
+      res.status(400).json({ error: 'La URL de imagen no es válida.' });
+      return;
+    }
+    if (
+      data.tags !== undefined &&
+      (!Array.isArray(data.tags) ||
+        data.tags.some((tag) => typeof tag !== 'string' || tag.trim().length > 50))
+    ) {
+      res.status(400).json({ error: 'Las etiquetas no son válidas.' });
+      return;
+    }
+
+    if (typeof data.title === 'string') meme.title = data.title.trim();
+    if (typeof data.imageUrl === 'string') meme.imageUrl = data.imageUrl.trim();
+    if (Array.isArray(data.tags)) meme.tags = data.tags.map((tag) => tag.trim()).filter(Boolean);
+
+    await meme.save();
+    res.json(await serializeSingleMeme(meme, req.user?.id));
+  } catch (error) {
+    console.error('Error al actualizar meme:', error);
+    res.status(500).json({ error: 'Error al actualizar el meme.' });
+  }
+};
+
+// DELETE /api/memes/:id
+export const deleteMeme = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de meme inválido.' });
+      return;
+    }
+
+    const meme = await Meme.findById(id);
+    if (!meme) {
+      res.status(404).json({ error: 'Meme no encontrado.' });
+      return;
+    }
+    if (!isMemeOwnerOrModerator(meme, req)) {
+      res.status(403).json({ error: 'No tienes permisos para eliminar este meme.' });
+      return;
+    }
+
+    await Comment.deleteMany({ memeId: meme._id });
+    await Meme.deleteOne({ _id: meme._id });
+
+    const author = await User.findById(meme.author);
+    if (author) await author.updateScore();
+
+    res.status(204).end();
+  } catch (error) {
+    console.error('Error al eliminar meme:', error);
+    res.status(500).json({ error: 'Error al eliminar el meme.' });
+  }
 };
 
 // POST /api/memes/:id/react
