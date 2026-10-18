@@ -8,6 +8,7 @@ export interface MemeReactionResponse {
     likes: number;
     dislikes: number;
     score: number;
+    myReaction: 'like' | 'dislike' | null;
   };
 }
 
@@ -37,7 +38,7 @@ export const getApprovedMemes = async () => {
   return memes.map(normalizeMeme);
 };
 
-// Reaccionar a un meme (Like / Dislike)
+// Reaccionar a un meme (Like / Dislike). Requiere sesión.
 export const reactToMeme = async (memeId: string, type: 'like' | 'dislike') => {
   return apiFetch<MemeReactionResponse>(`/memes/${memeId}/react`, {
     method: 'POST',
@@ -51,7 +52,18 @@ export const getTopMemes = async () => {
   return memes.map(normalizeMeme);
 };
 
+// Obtener los 10 peores memes (anti-ranking)
+export const getBottomMemes = async () => {
+  const memes = await apiFetch<ApiMeme[]>('/memes/anti-ranking');
+  return memes.map(normalizeMeme);
+};
+
 // Obtener los mejores 10 usuarios
 export const getTopUsers = async () => {
   return apiFetch<RankingUser[]>('/users/ranking');
+};
+
+// Obtener los 10 usuarios con peor puntaje (anti-ranking)
+export const getBottomUsers = async () => {
+  return apiFetch<RankingUser[]>('/users/anti-ranking');
 };

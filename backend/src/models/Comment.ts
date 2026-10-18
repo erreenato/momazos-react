@@ -1,4 +1,5 @@
 import { Schema, model, Document, Types, Model } from 'mongoose';
+import { SCORING } from '../config/scoring.js';
 
 // 1. Interfaz de Propiedades / Datos
 export interface IComment extends Document {
@@ -9,6 +10,10 @@ export interface IComment extends Document {
   memeId: Types.ObjectId;
   likes: number;
   dislikes: number;
+  /** Usuarios que dieron like (uno como máximo por usuario). */
+  likedBy: Types.ObjectId[];
+  /** Usuarios que dieron dislike (uno como máximo por usuario). */
+  dislikedBy: Types.ObjectId[];
   score: number;
 }
 
@@ -33,16 +38,18 @@ const commentSchema = new Schema<IComment, CommentModel, ICommentMethods>({
   memeId: { type: Schema.Types.ObjectId, ref: 'Meme', required: true },
   likes: { type: Number, default: 0 },
   dislikes: { type: Number, default: 0 },
+  likedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  dislikedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   score: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // 6. Asignación de Métodos con tipado explícito de 'this'
 commentSchema.methods.calculateScore = function (this: CommentDocument): number {
-  const baseComment = 1;
-  const likesPoints = this.likes * 1;
-  const dislikesPoints = this.dislikes * 1;
+  const { base, like, dislike } = SCORING.comment;
+  const likesPoints = this.likes * like;
+  const dislikesPoints = this.dislikes * dislike;
 
-  return baseComment + likesPoints - dislikesPoints;
+  return base + likesPoints + dislikesPoints;
 };
 
 commentSchema.methods.updateScore = async function (this: CommentDocument): Promise<number> {

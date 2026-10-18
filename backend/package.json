@@ -6,11 +6,10 @@
   "scripts": {
     "test": "cross-env NODE_ENV=test tsx --test --test-concurrency=1 tests/**/*.test.ts",
     "dev": "tsx watch src/index.ts",
+    "dev:memory": "tsx watch src/scripts/devMemory.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "seed": "tsx src/scripts/runner.ts",
-    "seed:approved": "tsx src/scripts/runner.ts approved",
-    "seed:pending": "tsx src/scripts/runner.ts pending"
+    "seed": "tsx src/scripts/runner.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,6 +33,7 @@
     "@types/node": "^22.20.5",
     "@types/supertest": "^7.2.1",
     "cross-env": "^10.1.0",
+    "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.3.1",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.23.15",

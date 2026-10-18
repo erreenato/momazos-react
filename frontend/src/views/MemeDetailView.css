@@ -523,3 +523,10 @@
   .meme-feed { padding: 16px 10px 48px; gap: 16px; }
   .meme-pill.share { margin-left: 0; }
 }
+
+.meme-auth-hint {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0.85;
+}

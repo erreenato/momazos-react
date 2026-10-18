@@ -8,7 +8,7 @@ import { LoginView } from './views/LoginView';
 import { MemeDetailView } from './views/MemeDetailView';
 import { ModerationView } from './views/ModerationView';
 import { ProfileView } from './views/ProfileView';
-import { RankingView } from './views/RankingView';
+import { AntiRankingView, RankingView } from './views/RankingView';
 import { RegisterView } from './views/RegisterView';
 import { SubirPost } from './views/SubirPost';
 import './App.css';
@@ -24,6 +24,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<HomeView />} />
                 <Route path="/ranking" element={<RankingView />} />
+                <Route path="/anti-ranking" element={<AntiRankingView />} />
                 <Route path="/meme/:id" element={<MemeDetailView />} />
                 <Route path="/login" element={<LoginView />} />
                 <Route path="/registro" element={<RegisterView />} />
@@ -40,8 +41,8 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
-            {/* Se pasa un array vacío temporalmente mientras se conecta el endpoint de ranking */}
-            <WeeklyRanking memes={[]} />
+            {/* El ranking lateral obtiene los datos por sí mismo desde la API */}
+            <WeeklyRanking />
           </div>
         </div>
       </AuthProvider>

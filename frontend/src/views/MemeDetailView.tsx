@@ -105,6 +105,7 @@ function CommentThread({
   reactions,
   reactingCommentId,
   onReact,
+  canReact,
 }: {
   comment: Comment;
   comments: Comment[];
@@ -112,6 +113,7 @@ function CommentThread({
   reactions: Record<string, 'like' | 'dislike' | null>;
   reactingCommentId: string | null;
   onReact: (commentId: string, type: 'like' | 'dislike') => void;
+  canReact: boolean;
 }) {
   const replies = comments.filter((c) => c.parentType === 'Comment' && c.parentId === comment.id);
   const name = authorName(comment.author);
@@ -133,7 +135,8 @@ function CommentThread({
               type="button"
               className={reactions[comment.id] === 'like' ? 'active-like' : ''}
               onClick={() => onReact(comment.id, 'like')}
-              disabled={reactingCommentId === comment.id}
+              disabled={reactingCommentId === comment.id || !canReact}
+              title={canReact ? undefined : 'Inicia sesión para reaccionar'}
             >
               <ThumbUpIcon /> {comment.likes}
             </button>
@@ -141,7 +144,8 @@ function CommentThread({
               type="button"
               className={reactions[comment.id] === 'dislike' ? 'active-dislike' : ''}
               onClick={() => onReact(comment.id, 'dislike')}
-              disabled={reactingCommentId === comment.id}
+              disabled={reactingCommentId === comment.id || !canReact}
+              title={canReact ? undefined : 'Inicia sesión para reaccionar'}
             >
               <ThumbDownIcon /> {comment.dislikes}
             </button>
@@ -160,6 +164,7 @@ function CommentThread({
               reactions={reactions}
               reactingCommentId={reactingCommentId}
               onReact={onReact}
+              canReact={canReact}
             />
           ))}
         </ul>
@@ -170,7 +175,8 @@ function CommentThread({
 
 function useMemeInteractions(meme: Meme) {
   const { user } = useAuth();
-  const [vote, setVote] = useState<'like' | 'dislike' | null>(null);
+  // Si el backend ya nos dice qué votó este usuario, arrancamos con ese estado.
+  const [vote, setVote] = useState<'like' | 'dislike' | null>(meme.myReaction ?? null);
   const [likes, setLikes] = useState<number>(meme.likes);
   const [dislikes, setDislikes] = useState<number>(meme.dislikes);
   const [isReacting, setIsReacting] = useState(false);
@@ -215,8 +221,12 @@ function useMemeInteractions(meme: Meme) {
   const totalComments = comments.length;
 
   const toggleVote = async (type: 'like' | 'dislike') => {
-    // El backend incrementa el contador en cada POST y no tiene operación de
-    // deshacer, por lo que no repetimos la misma reacción desde esta tarjeta.
+    // Reaccionar exige sesión: el backend lo rechaza igual, pero damos feedback inmediato.
+    if (!user) {
+      setReactionError('Inicia sesión para reaccionar.');
+      return;
+    }
+    // Un solo voto por publicación: repetir el mismo voto no hace nada.
     if (isReacting || vote === type) return;
 
     setIsReacting(true);
@@ -225,7 +235,7 @@ function useMemeInteractions(meme: Meme) {
       const response = await reactToMeme(meme.id, type);
       setLikes(response.meme.likes);
       setDislikes(response.meme.dislikes);
-      setVote(type);
+      setVote(response.meme.myReaction);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo registrar la reacción.';
       console.error('Error al enviar reacción al backend:', err);
@@ -256,6 +266,10 @@ function useMemeInteractions(meme: Meme) {
   };
 
   const handleCommentReaction = async (commentId: string, type: 'like' | 'dislike') => {
+    if (!user) {
+      setCommentError('Inicia sesión para reaccionar.');
+      return;
+    }
     if (reactingCommentId) return;
 
     setReactingCommentId(commentId);
@@ -267,7 +281,7 @@ function useMemeInteractions(meme: Meme) {
       );
       setCommentReactions((currentReactions) => ({
         ...currentReactions,
-        [commentId]: type,
+        [commentId]: response.comment.myReaction ?? null,
       }));
     } catch (err) {
       setCommentError(err instanceof Error ? err.message : 'No se pudo registrar la reacción.');
@@ -289,6 +303,7 @@ function useMemeInteractions(meme: Meme) {
     commentsLoading,
     commentError,
     canComment: user !== null,
+    canReact: user !== null,
     replyTo,
     setReplyTo,
     commentReactions,
@@ -373,6 +388,7 @@ export function FeaturedMemeDetail({
     commentsLoading,
     commentError,
     canComment,
+    canReact,
     replyTo,
     setReplyTo,
     commentReactions,
@@ -416,6 +432,7 @@ export function FeaturedMemeDetail({
             <ThumbDownIcon />
             <span>{dislikeCount}</span>
           </button>
+          {!canReact && <span className="meme-auth-hint">Inicia sesión para reaccionar</span>}
           {reactionError && <span role="alert">{reactionError}</span>}
           <button type="button" className="meme-pin-iconbtn" aria-label="Más opciones">
             <MoreIcon />
@@ -464,6 +481,7 @@ export function FeaturedMemeDetail({
                 reactions={commentReactions}
                 reactingCommentId={reactingCommentId}
                 onReact={handleCommentReaction}
+                canReact={canReact}
               />
             ))
           )}
@@ -499,6 +517,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
     commentsLoading,
     commentError,
     canComment,
+    canReact,
     replyTo,
     setReplyTo,
     commentReactions,
@@ -563,6 +582,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
           <ThumbDownIcon />
           {dislikeCount}
         </button>
+        {!canReact && <span className="meme-auth-hint">Inicia sesión para reaccionar</span>}
         {reactionError && <span role="alert">{reactionError}</span>}
         <button
           type="button"
@@ -595,6 +615,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
                   reactions={commentReactions}
                   reactingCommentId={reactingCommentId}
                   onReact={handleCommentReaction}
+                  canReact={canReact}
                 />
               ))
             )}

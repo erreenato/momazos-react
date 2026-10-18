@@ -34,11 +34,17 @@ const userSchema = new Schema<IUser, {}, IUserMethods>(
   { timestamps: true }
 );
 
-// 4. Método para CALCULAR el puntaje total del usuario desde la BD
+/**
+ * Puntaje del usuario = calidad de su contenido + aporte de sus comentarios.
+ * - Suma el score de los memes que publicó, ignorando los rechazados: si la
+ *   moderación descarta un meme, ese contenido no debe sostener el perfil.
+ * - Suma el score de los comentarios que escribió (que ya incluye sus likes).
+ * Puede quedar en negativo, lo que alimenta el anti-ranking de usuarios.
+ */
 userSchema.methods.calculateScore = async function (this: IUser): Promise<number> {
-  // A. Sumar score de todos los memes creados por este usuario
+  // A. Sumar score de todos los memes no rechazados creados por este usuario
   const memeScoreResult = await Meme.aggregate([
-    { $match: { author: this._id } },
+    { $match: { author: this._id, status: { $ne: 'rejected' } } },
     { $group: { _id: null, totalScore: { $sum: '$score' } } },
   ]);
 
