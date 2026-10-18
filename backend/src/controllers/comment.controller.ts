@@ -24,6 +24,65 @@ const serializeComment = (comment: CommentDocument, viewerId?: string) => {
   return { ...plain, myReaction };
 };
 
+const canManageComment = (comment: CommentDocument, req: Request): boolean =>
+  req.user?.role === 'moderator' || String(comment.author) === req.user?.id;
+
+const canViewComment = async (comment: CommentDocument, req: Request): Promise<boolean> => {
+  const meme = await Meme.findById(comment.memeId).select('status author');
+  if (!meme) return false;
+  return (
+    meme.status === 'approved' ||
+    req.user?.role === 'moderator' ||
+    String(meme.author) === req.user?.id ||
+    String(comment.author) === req.user?.id
+  );
+};
+
+const populateComment = async (
+  comment: CommentDocument,
+  viewerId?: string,
+): Promise<ReturnType<typeof serializeComment>> => {
+  const populated = await comment.populate('author', 'username avatarUrl');
+  return serializeComment(populated as CommentDocument, viewerId);
+};
+
+// GET /api/comments
+export const getComments = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const approvedMemes = await Meme.find({ status: 'approved' }).select('_id');
+    const comments = (await Comment.find({ memeId: { $in: approvedMemes.map((meme) => meme._id) } })
+      .populate('author', 'username avatarUrl')
+      .sort({ createdAt: -1 })) as CommentDocument[];
+
+    res.json(comments.map((comment) => serializeComment(comment, req.user?.id)));
+  } catch (error) {
+    console.error('Error al listar comentarios:', error);
+    res.status(500).json({ error: 'Error al listar comentarios.' });
+  }
+};
+
+// GET /api/comments/:id
+export const getCommentById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de comentario inválido.' });
+      return;
+    }
+
+    const comment = (await Comment.findById(id)) as CommentDocument | null;
+    if (!comment || !(await canViewComment(comment, req))) {
+      res.status(404).json({ error: 'Comentario no encontrado.' });
+      return;
+    }
+
+    res.json(await populateComment(comment, req.user?.id));
+  } catch (error) {
+    console.error('Error al obtener comentario:', error);
+    res.status(500).json({ error: 'Error al obtener el comentario.' });
+  }
+};
+
 export const createComment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { content, parentId, parentType } = req.body;
@@ -110,6 +169,96 @@ export const getMemeComments = async (req: Request, res: Response): Promise<void
     res.json(comments.map((comment) => serializeComment(comment, req.user?.id)));
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener comentarios.' });
+  }
+};
+
+// PATCH /api/comments/:id
+export const updateComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de comentario inválido.' });
+      return;
+    }
+
+    const body: unknown = req.body;
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      res.status(400).json({ error: 'Datos de comentario inválidos.' });
+      return;
+    }
+
+    const data = body as Record<string, unknown>;
+    if (
+      Object.keys(data).length !== 1 ||
+      typeof data.content !== 'string' ||
+      !data.content.trim() ||
+      data.content.trim().length > 2000
+    ) {
+      res.status(400).json({ error: 'Solo se puede actualizar content y debe ser válido.' });
+      return;
+    }
+
+    const comment = (await Comment.findById(id)) as CommentDocument | null;
+    if (!comment) {
+      res.status(404).json({ error: 'Comentario no encontrado.' });
+      return;
+    }
+    if (!canManageComment(comment, req)) {
+      res.status(403).json({ error: 'No tienes permisos para modificar este comentario.' });
+      return;
+    }
+
+    comment.content = data.content.trim();
+    await comment.save();
+    res.json(await populateComment(comment, req.user?.id));
+  } catch (error) {
+    console.error('Error al actualizar comentario:', error);
+    res.status(500).json({ error: 'Error al actualizar el comentario.' });
+  }
+};
+
+// DELETE /api/comments/:id
+export const deleteComment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    if (typeof id !== 'string' || !Types.ObjectId.isValid(id)) {
+      res.status(400).json({ error: 'ID de comentario inválido.' });
+      return;
+    }
+
+    const comment = (await Comment.findById(id)) as CommentDocument | null;
+    if (!comment) {
+      res.status(404).json({ error: 'Comentario no encontrado.' });
+      return;
+    }
+    if (!canManageComment(comment, req)) {
+      res.status(403).json({ error: 'No tienes permisos para eliminar este comentario.' });
+      return;
+    }
+
+    const descendants: Array<{ _id: Types.ObjectId; author: Types.ObjectId }> = [];
+    let parentIds = [comment._id];
+    while (parentIds.length > 0) {
+      const children = await Comment.find({ parentId: { $in: parentIds } }).select('_id author');
+      descendants.push(...children);
+      parentIds = children.map((child) => child._id);
+    }
+
+    const deletedCommentIds = [comment._id, ...descendants.map((child) => child._id)];
+    const affectedAuthors = [comment.author, ...descendants.map((child) => child.author)];
+    await Comment.deleteMany({ _id: { $in: deletedCommentIds } });
+
+    const meme = await Meme.findById(comment.memeId);
+    if (meme) await meme.updateScore();
+    for (const authorId of affectedAuthors) {
+      const author = await User.findById(authorId);
+      if (author) await author.updateScore();
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    console.error('Error al eliminar comentario:', error);
+    res.status(500).json({ error: 'Error al eliminar el comentario.' });
   }
 };
 
