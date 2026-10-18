@@ -26,5 +26,6 @@ Thumbs.db
 .idea/
 
 # Archivos locales
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
 backend/.env
