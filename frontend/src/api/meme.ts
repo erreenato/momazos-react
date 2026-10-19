@@ -14,7 +14,10 @@ export interface MemeReactionResponse {
 
 interface ApiMeme extends Omit<Meme, 'id' | 'author'> {
   _id: string;
-  author: string | { username: string };
+  author: string | {
+    _id: string;
+    username: string;
+  };
 }
 
 export interface RankingUser {
@@ -28,7 +31,15 @@ function normalizeMeme({ _id, author, ...meme }: ApiMeme): Meme {
   return {
     ...meme,
     id: _id,
-    author: typeof author === 'string' ? author : author.username,
+    author:
+      typeof author === 'string'
+        ? author
+        : {
+          id: author._id,
+          username: author.username,
+          role: 'user',
+          score: 0,
+        },
   };
 }
 

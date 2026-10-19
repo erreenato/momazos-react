@@ -40,3 +40,23 @@
   font-size: 14px;
   color: var(--text);
 }
+
+/* Enlace al perfil del autor */
+
+.meme-author-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.meme-author-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.meme-author-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
