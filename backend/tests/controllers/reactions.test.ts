@@ -16,6 +16,7 @@ import {
 } from '../test_helper.js';
 
 let user: TestSession;
+let moderator: TestSession;
 let authorId: string;
 
 const createMeme = async (overrides: Record<string, unknown> = {}) =>
@@ -44,6 +45,7 @@ beforeEach(async () => {
   const author = await User.findOne({ username: moderatorUser.username });
   authorId = String(author?._id);
   user = await login({ email: normalUser.email, password: normalUser.password });
+  moderator = await login({ email: moderatorUser.email, password: moderatorUser.password });
 });
 
 after(async () => {
@@ -120,6 +122,139 @@ describe('GET /api/memes', () => {
     const result = await api.get('/api/memes').expect(200);
 
     assert.strictEqual(result.body[0].myReaction, null);
+  });
+});
+
+describe('GET /api/memes/:id', () => {
+  test('returns an approved meme with its public author', async () => {
+    const meme = await createMeme();
+
+    const result = await api.get(`/api/memes/${String(meme._id)}`).expect(200);
+
+    assert.strictEqual(result.body._id, String(meme._id));
+    assert.strictEqual(result.body.author.username, moderatorUser.username);
+    assert.strictEqual(result.body.likedBy, undefined);
+  });
+
+  test('returns 404 for an invalid or non-existing meme visibility', async () => {
+    const pending = await createMeme({ status: 'pending' });
+
+    await api.get(`/api/memes/${String(pending._id)}`).expect(404);
+    await api.get('/api/memes/id-invalido').expect(400);
+    await api.get(`/api/memes/${nonExistingId()}`).expect(404);
+  });
+
+  test('allows the owner or moderator to see an unapproved meme', async () => {
+    const pending = await createMeme({ status: 'pending' });
+
+    await api
+      .get(`/api/memes/${String(pending._id)}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(200);
+  });
+});
+
+describe('PATCH /api/memes/:id', () => {
+  test('updates editable fields for the author', async () => {
+    const meme = await Meme.create({
+      title: 'Original',
+      imageUrl: 'https://example.com/original.jpg',
+      author: await User.findOne({ username: normalUser.username }).then((user) => user?._id),
+      status: 'approved',
+    });
+
+    const result = await api
+      .patch(`/api/memes/${String(meme._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({
+        title: 'Actualizado',
+        imageUrl: 'https://example.com/updated.jpg',
+        tags: ['humor', 'typescript'],
+      })
+      .expect(200);
+
+    assert.strictEqual(result.body.title, 'Actualizado');
+    assert.deepStrictEqual(result.body.tags, ['humor', 'typescript']);
+    assert.strictEqual((await Meme.findById(meme._id))?.title, 'Actualizado');
+  });
+
+  test('rejects invalid fields and unauthorized users', async () => {
+    const meme = await createMeme();
+
+    await api
+      .patch(`/api/memes/${String(meme._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ score: 999 })
+      .expect(400);
+
+    await api
+      .patch(`/api/memes/${String(meme._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ title: 'No autorizado' })
+      .expect(403);
+  });
+
+  test('returns 400 or 404 for invalid or non-existing ids', async () => {
+    await api
+      .patch('/api/memes/id-invalido')
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ title: 'Meme' })
+      .expect(400);
+
+    await api
+      .patch(`/api/memes/${nonExistingId()}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .send({ title: 'Meme' })
+      .expect(404);
+  });
+});
+
+describe('DELETE /api/memes/:id', () => {
+  test('deletes the meme and its comments for the author', async () => {
+    const meme = await Meme.create({
+      title: 'Para borrar',
+      imageUrl: 'https://example.com/delete.jpg',
+      author: await User.findOne({ username: normalUser.username }).then((user) => user?._id),
+      status: 'approved',
+    });
+    await Comment.create({
+      content: 'Comentario asociado',
+      author: authorId,
+      parentId: meme._id,
+      parentType: 'Meme',
+      memeId: meme._id,
+    });
+
+    await api
+      .delete(`/api/memes/${String(meme._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .expect(204);
+
+    assert.strictEqual(await Meme.findById(meme._id), null);
+    assert.strictEqual(await Comment.countDocuments({ memeId: meme._id }), 0);
+  });
+
+  test('returns 403 for another user and 404 for a missing meme', async () => {
+    const meme = await createMeme();
+
+    await api
+      .delete(`/api/memes/${String(meme._id)}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .expect(403);
+
+    await api
+      .delete(`/api/memes/${nonExistingId()}`)
+      .set('Cookie', user.cookie)
+      .set('X-CSRF-Token', user.csrfToken)
+      .expect(404);
   });
 });
 
