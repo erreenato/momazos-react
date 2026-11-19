@@ -16,8 +16,16 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
 
   // 2. Si no está autenticado, redirige a /login pasando la ruta original como string
   if (!user) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  }
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+
+  return (
+    <Navigate
+      to="/login"
+      state={{ from: returnTo }}
+      replace
+    />
+  );
+}
 
   // 3. Si la ruta exige rol de moderador y el usuario no lo tiene, vuelve al inicio
   if (role && user.role !== role) {
