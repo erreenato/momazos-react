@@ -68,6 +68,27 @@ describe('GET /api/moderation/memes', () => {
   test('returns 401 without session', async () => {
     await api.get('/api/moderation/memes').expect(401);
   });
+
+
+  test('revokes moderator access when role changes in database', async () => {
+    const moderatorInDb = await User.findOne({
+      username: moderatorUser.username,
+    });
+
+    assert(moderatorInDb);
+
+    moderatorInDb.role = 'user';
+    await moderatorInDb.save();
+
+    await api
+      .get('/api/moderation/memes')
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(403);
+  });
+
+
+
 });
 
 describe('PATCH /api/memes/:id/status', () => {
