@@ -60,9 +60,11 @@ const getErrorResponse = (error: unknown): { statusCode: number; message: string
   return { statusCode: 500, message: 'Error interno del servidor.' };
 };
 
-export const notFoundHandler = (req: Request, res: Response): void => {
-  res.status(404).json({ error: `La ruta ${req.method} ${req.originalUrl} no existe.` });
+
+export const notFoundHandler = (_req: Request, res: Response): void => {
+  res.status(404).json({ error: 'La ruta solicitada no existe.' });
 };
+
 
 export const errorHandler: ErrorRequestHandler = (
   error: unknown,
