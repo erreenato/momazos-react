@@ -20,14 +20,18 @@ const USER_SEEDS = [
   { username: 'patata_frita', email: 'patata@memes.com', description: 'Amante del caos y las patatas.' },
   { username: 'el_troll', email: 'troll@memes.com', description: 'Comentarios polémicos a domicilio.' },
   { username: 'AdminGatito', email: 'admin@memes.com', description: 'Moderador oficial del sitio.', role: 'moderator' as const },
+  { username: 'juan-momazos2', email: 'juan@memes.com', description: 'El único meme que necesitas.' },
 ];
 
 interface MemeSeed {
   title: string;
   tags: string[];
   status: 'approved' | 'pending' | 'rejected';
+  author?: number;
   /** Índices de usuarios que dan like (sobre USER_SEEDS). */
   likes: number[];
+  /** Cantidad total de likes para seeds que representan un volumen mayor. */
+  likeCount?: number;
   /** Índices de usuarios que dan dislike. */
   dislikes: number[];
 }
@@ -51,6 +55,15 @@ const MEME_SEEDS: MemeSeed[] = [
   { title: 'Propuesta para el logo nuevo', tags: ['meta'], status: 'pending', likes: [], dislikes: [] },
   { title: 'Repost del repost del repost', tags: ['spam'], status: 'rejected', likes: [], dislikes: [] },
   { title: 'Contenido no relacionado con la página', tags: ['spam'], status: 'rejected', likes: [], dislikes: [] },
+  {
+    title: 'Momo muy bueno',
+    tags: ['meta'],
+    status: 'approved',
+    author: 6,
+    likes: [],
+    likeCount: 100,
+    dislikes: [],
+  },
 ];
 
 const COMMENT_SEEDS: { meme: number; author: number; content: string; likes: number[] }[] = [
@@ -65,6 +78,16 @@ const COMMENT_SEEDS: { meme: number; author: number; content: string; likes: num
 
 const pickUsers = (users: Types.ObjectId[], indexes: number[]): Types.ObjectId[] =>
   indexes.filter((index) => index < users.length).map((index) => users[index]);
+
+const ensureLikeCount = (likedBy: Types.ObjectId[], count: number): Types.ObjectId[] => {
+  const result = likedBy.slice(0, count);
+
+  while (result.length < count) {
+    result.push(new Types.ObjectId());
+  }
+
+  return result;
+};
 
 
 export const seedDatabase = async (): Promise<void> => {
@@ -99,7 +122,7 @@ export const seedDatabase = async (): Promise<void> => {
   const memes = [];
 
   for (const [index, seed] of MEME_SEEDS.entries()) {
-    const author = userIds[index % userIds.length];
+    const author = userIds[seed.author ?? index % userIds.length];
 
     let meme = await Meme.findOne({
       title: seed.title,
@@ -107,7 +130,9 @@ export const seedDatabase = async (): Promise<void> => {
     });
 
     if (!meme) {
-      const likedBy = pickUsers(userIds, seed.likes);
+      const likedBy = seed.likeCount === undefined
+        ? pickUsers(userIds, seed.likes)
+        : ensureLikeCount(pickUsers(userIds, seed.likes), seed.likeCount);
       const dislikedBy = pickUsers(userIds, seed.dislikes);
 
       meme = await Meme.create({
@@ -123,6 +148,10 @@ export const seedDatabase = async (): Promise<void> => {
       });
 
       console.log(`🖼️ Meme creado: ${seed.title}`);
+    } else if (seed.likeCount !== undefined) {
+      meme.likedBy = ensureLikeCount(meme.likedBy, seed.likeCount);
+      meme.likes = meme.likedBy.length;
+      await meme.save();
     }
 
     memes.push(meme);
