@@ -104,20 +104,50 @@ export const requireAuth = async (
  * válida deja la sesión en `req.user` y si no, sigue como anónimo. Pensado para
  * endpoints públicos que quieren personalizar la respuesta (p. ej. `myReaction`).
  */
-export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+
+export const optionalAuth = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
   const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
-  if (typeof token === 'string' && token !== '') {
-    try {
-      const payload: unknown = jwt.verify(token, getJwtSecret());
-      if (isJwtPayload(payload)) {
-        req.user = { id: payload.sub, role: payload.role };
-      }
-    } catch {
-      // Cookie inválida o expirada: se trata como visitante anónimo.
-    }
+
+  if (typeof token !== 'string' || token === '') {
+    next();
+    return;
   }
-  next();
+
+  let payload: unknown;
+
+  try {
+    payload = jwt.verify(token, getJwtSecret());
+  } catch {
+    // Cookie inválida o expirada: continuar como visitante anónimo.
+    next();
+    return;
+  }
+
+  if (!isJwtPayload(payload)) {
+    next();
+    return;
+  }
+
+  try {
+    const user = await User.findById(payload.sub);
+
+    if (user) {
+      req.user = {
+        id: String(user._id),
+        role: user.role,
+      };
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
+
 
 /** Debe usarse después de `requireAuth`. Responde 403 si el rol no está permitido. */
 export const requireRole =
