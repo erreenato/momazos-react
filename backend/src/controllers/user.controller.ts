@@ -191,6 +191,21 @@ export const updateMyProfile = async (
         ? req.body
         : {};
     const data = body as Record<string, unknown>;
+
+    if (
+      (data.description !== undefined &&
+        (typeof data.description !== 'string' ||
+          data.description.length > 500)) ||
+      (data.avatarUrl !== undefined &&
+        (typeof data.avatarUrl !== 'string' ||
+          data.avatarUrl.length > 2048))
+    ) {
+      res.status(400).json({
+        error: 'Datos de perfil inválidos',
+      });
+      return;
+    }
+
     if (Object.keys(data).some((key) => key !== 'description' && key !== 'avatarUrl') || Object.keys(data).length === 0) {
       res.status(400).json({ error: 'Solo puedes actualizar description y avatarUrl.' });
       return;
