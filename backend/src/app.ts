@@ -20,7 +20,7 @@ app.use(
 );
 
 // Middlewares requeridos
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
 app.use(cookieParser());
 app.use(
   cors({
