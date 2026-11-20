@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
-import { unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Meme, type IMeme } from '../models/Meme.js';
 import { Comment } from '../models/Comment.js';
 import { User } from '../models/User.js';
+import { unlink } from 'node:fs/promises';
+import { fileTypeFromFile } from 'file-type';
 
 type ReactionType = 'like' | 'dislike';
 
@@ -368,13 +369,47 @@ export const createMeme = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const cleanupUploadedFile = async (): Promise<void> => {
+    if (!req.file) return;
+
+    try {
+      await unlink(req.file.path);
+    } catch (error) {
+      console.error('No se pudo eliminar el archivo subido:', error);
+    }
+  };
+
   try {
     if (!req.user) {
+      await cleanupUploadedFile();
       res.status(401).json({ error: 'No autenticado' });
       return;
     }
 
     const { title, imageUrl } = req.body ?? {};
+
+    if (req.file) {
+      const detectedType = await fileTypeFromFile(req.file.path);
+
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ];
+
+      if (
+        !detectedType ||
+        !allowedTypes.includes(detectedType.mime) ||
+        detectedType.mime !== req.file.mimetype
+      ) {
+        await cleanupUploadedFile();
+
+        res.status(400).json({
+          error: 'El archivo no es una imagen JPG, PNG o WebP válida.',
+        });
+        return;
+      }
+    }
 
     const finalImageUrl = req.file
       ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
@@ -388,6 +423,8 @@ export const createMeme = async (
       !/^https?:\/\/\S+$/i.test(finalImageUrl.trim()) ||
       finalImageUrl.trim().length > 2048
     ) {
+      await cleanupUploadedFile();
+
       res.status(400).json({
         error: 'Debes ingresar un título y una URL de imagen válidos.',
       });
@@ -403,9 +440,11 @@ export const createMeme = async (
 
     res.status(201).json(meme);
   } catch (error) {
+    await cleanupUploadedFile();
+
     console.error('Error al publicar meme:', error);
     res.status(500).json({
       error: 'No se pudo publicar el meme.',
     });
   }
-};
+}; 

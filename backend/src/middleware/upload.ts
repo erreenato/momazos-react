@@ -8,10 +8,24 @@ const storage = multer.diskStorage({
     destination: (_req, _file, callback) => {
         callback(null, path.resolve(process.cwd(), 'uploads'));
     },
+
     filename: (_req, file, callback) => {
-        const extension = path.extname(file.originalname).toLowerCase();
+        const extensions: Record<string, string> = {
+            'image/jpeg': '.jpg',
+            'image/png': '.png',
+            'image/webp': '.webp',
+        };
+
+        const extension = extensions[file.mimetype];
+
+        if (!extension) {
+            callback(new HttpError(400, 'Tipo de imagen no permitido.'), '');
+            return;
+        }
+
         callback(null, `${randomUUID()}${extension}`);
     },
+
 });
 
 export const uploadMemeImage = multer({
