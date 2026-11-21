@@ -16,3 +16,9 @@
 .ranking-container--inverted {
   filter: invert(1);
 }
+
+/* El botón de cambio se "des-invierte" (invertir dos veces = colores reales),
+   para que el 🌈 y el morado de la marca se vean normales dentro del Anti-Ranking. */
+.ranking-container--inverted .ranking-toggle {
+  filter: invert(1);
+}

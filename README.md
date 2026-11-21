@@ -247,6 +247,16 @@ Componentes compartidos en `frontend/src/components/ui/`:
 
 Ninguna vista principal genera scroll horizontal a 375px de ancho.
 
+### Transiciones
+
+- El Anti-Ranking se abre con el botón **"Ver Anti-Ranking"** dentro del Ranking
+  (ya no tiene enlace propio en la barra; la URL `/anti-ranking` sigue funcionando).
+- Ranking → Anti-Ranking: tormenta con **rayos** y la tabla tiembla.
+- Anti-Ranking → Ranking: resplandor con **arcoíris** y destellos.
+- La vista se cambia a mitad de la animación (0,52 s de 1,3 s), cuando la pantalla
+  está cubierta. Código en `frontend/src/components/RankingTransition.tsx`.
+- Si el sistema tiene activado "reducir movimiento", se cambia sin animación.
+
 ## Aplicación desplegada
 
 La URL destinada para el despliegue en el servidor del curso es:

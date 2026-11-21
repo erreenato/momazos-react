@@ -6,6 +6,7 @@ import {
   Avatar,
   Button,
   Card,
+  CardActionArea,
   CardActions,
   CardContent,
   CardMedia,
@@ -378,6 +379,9 @@ function ProfileContent({
           <div className="memes-grid">
             {userMemes.map((meme) => (
               <Card className="profile-meme-card" key={meme.id}>
+                {/* CardActionArea hace clickeable la imagen + info: abre la página del meme
+                    (con comentarios). El botón Eliminar queda fuera para no abrirla por error. */}
+                <CardActionArea component={Link} to={`/meme/${meme.id}`} aria-label={`Ver "${meme.title}"`}>
                 <CardMedia
                   component="img"
                   image={meme.imageUrl}
@@ -403,6 +407,7 @@ function ProfileContent({
                     {meme.likes} likes · {meme.dislikes} dislikes
                   </Typography>
                 </CardContent>
+                </CardActionArea>
 
                 {isOwner && (
                   <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>

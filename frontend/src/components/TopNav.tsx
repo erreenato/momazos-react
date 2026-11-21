@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ComponentType } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Avatar,
@@ -13,7 +13,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  SvgIcon,
   Toolbar,
   Tooltip,
   Typography,
@@ -28,36 +27,20 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import { useAuth } from '../auth/useAuth';
 
-/** Material Icons no trae calavera: se reutiliza el SVG original dentro de SvgIcon. */
-function SkullIcon(props: SvgIconProps) {
-  return (
-    <SvgIcon {...props} viewBox="0 0 24 24">
-      <path
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3c-4.4 0-7.5 3-7.5 7.2 0 2.4 1 4 2.3 5.1.5.4.7.9.7 1.5V18a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5v-1.2c0-.6.2-1.1.7-1.5 1.3-1.1 2.3-2.7 2.3-5.1C19.5 6 16.4 3 12 3zM11 19.5h2"
-      />
-      <circle cx="9" cy="11" r="1.4" />
-      <circle cx="15" cy="11" r="1.4" />
-    </SvgIcon>
-  );
-}
-
 interface NavItem {
   label: string;
   icon: ComponentType<SvgIconProps>;
   to: string;
   moderatorOnly?: boolean;
+  /** Otras rutas en las que este enlace también se marca como activo. */
+  alsoActiveOn?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Inicio', icon: HomeRoundedIcon, to: '/' },
   { label: 'Subir Meme', icon: AddPhotoAlternateRoundedIcon, to: '/subir' },
-  { label: 'Ranking Memes', icon: EmojiEventsRoundedIcon, to: '/ranking' },
-  { label: 'Anti-Ranking', icon: SkullIcon, to: '/anti-ranking' },
+  // El Anti-Ranking ya no tiene enlace propio: se entra con un botón dentro del Ranking.
+  { label: 'Ranking Memes', icon: EmojiEventsRoundedIcon, to: '/ranking', alsoActiveOn: ['/anti-ranking'] },
   { label: 'Moderación', icon: GppGoodRoundedIcon, to: '/moderacion', moderatorOnly: true },
 ];
 
@@ -99,7 +82,11 @@ export function TopNav() {
     navigate('/login');
   };
 
+  const { pathname } = useLocation();
   const visibleItems = NAV_ITEMS.filter((item) => !item.moderatorOnly || user?.role === 'moderator');
+  // NavLink marca "active" solo en su propia ruta; esto agrega las rutas extra (alsoActiveOn).
+  const extraActive = (alsoActiveOn?: string[]) =>
+    alsoActiveOn?.some((path) => pathname.startsWith(path)) ? 'active' : undefined;
 
   const userAvatar = user && (
     <Avatar src={user.avatarUrl || undefined} alt="" sx={{ width: 28, height: 28, fontSize: 13, bgcolor: 'primary.main' }}>
@@ -130,12 +117,13 @@ export function TopNav() {
         {/* Enlaces horizontales: desde tablet grande hacia arriba.
             Entre md y lg solo se muestra el ícono (con Tooltip) para que la barra no se desborde. */}
         <Box component="nav" aria-label="Navegación principal" sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, gap: 0.5 }}>
-          {visibleItems.map(({ label, icon: Icon, to }) => (
+          {visibleItems.map(({ label, icon: Icon, to, alsoActiveOn }) => (
             <Tooltip key={label} title={label} disableHoverListener={isWide}>
               <Button
                 component={NavLink}
                 to={to}
                 end={to === '/'}
+                className={extraActive(alsoActiveOn)}
                 aria-label={label}
                 startIcon={isWide ? <Icon /> : undefined}
                 sx={{ ...navButtonSx, minWidth: 0 }}
@@ -203,12 +191,13 @@ export function TopNav() {
           </Box>
           <Divider />
           <List>
-            {visibleItems.map(({ label, icon: Icon, to }) => (
+            {visibleItems.map(({ label, icon: Icon, to, alsoActiveOn }) => (
               <ListItemButton
                 key={label}
                 component={NavLink}
                 to={to}
                 end={to === '/'}
+                className={extraActive(alsoActiveOn)}
                 onClick={() => setDrawerOpen(false)}
                 sx={{ '&.active': { color: 'primary.main', '& .MuiListItemIcon-root': { color: 'primary.main' } } }}
               >

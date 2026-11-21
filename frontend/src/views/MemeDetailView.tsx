@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
 import { CURRENT_USER, canSeeMeme, useMemes } from '../memeStore';
 import type { Comment, Meme, User } from '../types';
 import { getCommentsByMeme, postComment, reactToCommentApi } from '../api/comment';
 import { useAuth } from '../auth/useAuth';
-import { reactToMeme } from '../api/meme';
+import { getApprovedMemes, getMemeById, reactToMeme } from '../api/meme';
+import { ApiError } from '../api/client';
 import {
   Alert,
   Avatar as MuiAvatar,
@@ -22,6 +23,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
@@ -715,10 +717,13 @@ function MemeFeed({
   memes: memesProp,
   initialFeaturedId = null,
   syncUrl = false,
+  header = null,
 }: {
   memes?: Meme[];
   initialFeaturedId?: string | null;
   syncUrl?: boolean;
+  /** Contenido opcional sobre el feed (p. ej. el botón "Volver" en /meme/:id). */
+  header?: ReactNode;
 }) {
   const navigate = useNavigate();
   const storeMemes = useMemes();
@@ -751,13 +756,16 @@ function MemeFeed({
 
   const applyFeatured = (newId: string | null) => {
     withViewTransition(() => setFeaturedId(newId));
-    if (syncUrl) navigate(newId ? `/meme/${newId}` : '/', { replace: true });
+    // Al agrandar otro meme se actualiza la URL; al achicarlo se queda en la misma
+    // página (antes saltaba a "/", lo que sacaba al usuario si venía del perfil).
+    if (syncUrl && newId) navigate(`/meme/${newId}`, { replace: true });
   };
 
   const collapseMeme = () => applyFeatured(null);
 
   return (
     <div className="meme-feed">
+      {header}
       {/* Snackbar de MUI: aviso temporal ("¡Enlace copiado!"); el cierre automático lo maneja el efecto de arriba */}
       <Snackbar
         open={toast !== null}
@@ -783,31 +791,100 @@ function MemeFeed({
 
 export { MemeFeed };
 
-/** Standalone route for a shareable link to one specific meme (`/meme/:id`). */
+/**
+ * Ruta `/meme/:id`: página propia de un meme (con sus comentarios).
+ *
+ * Carga el meme desde la API (`GET /api/memes/:id`). El backend también lo entrega
+ * si está pendiente o rechazado, siempre que lo pida su autor o un moderador;
+ * por eso funciona al abrir un meme propio desde el perfil.
+ * Debajo se muestran los demás memes aprobados, como en el feed.
+ */
 export function MemeDetailView() {
   const { id } = useParams<{ id: string }>();
-  const memes = useMemes();
-  // Los memes pendientes o rechazados solo los ven su autor o un moderador.
-  const exists = memes.some((m) => m.id === id && canSeeMeme(CURRENT_USER, m));
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [result, setResult] = useState<{ forId: string; memes: Meme[] | null; error?: string } | null>(null);
 
-  if (!exists) {
+  // Si el meme ya está en el feed cargado (el usuario agrandó otro meme de la misma
+  // página), no se vuelve a pedir: así la animación no se corta ni la lista se recarga.
+  const alreadyLoaded = result?.memes?.some((m) => m.id === id) ?? false;
+
+  useEffect(() => {
+    if (!id || alreadyLoaded) return;
+    let cancelled = false;
+
+    Promise.all([getMemeById(id), getApprovedMemes().catch(() => [] as Meme[])])
+      .then(([meme, approved]) => {
+        if (cancelled) return;
+        setResult({ forId: id, memes: [meme, ...approved.filter((m) => m.id !== meme.id)] });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        const notFound = err instanceof ApiError && (err.status === 404 || err.status === 400);
+        setResult({
+          forId: id,
+          memes: null,
+          error: notFound ? undefined : err instanceof Error ? err.message : 'No se pudo cargar el meme.',
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, alreadyLoaded]);
+
+  // "Volver" solo tiene sentido si se llegó desde otra página de la app.
+  const canGoBack = location.key !== 'default';
+  const backButton = canGoBack && (
+    <Button
+      startIcon={<ArrowBackRoundedIcon />}
+      color="inherit"
+      onClick={() => navigate(-1)}
+      sx={{ alignSelf: 'flex-start', color: 'text.secondary' }}
+    >
+      Volver
+    </Button>
+  );
+
+  if (!alreadyLoaded && result?.forId !== id) {
     return (
       <div className="meme-feed">
-        <Card>
-          <EmptyState
-            icon="🔍"
-            title="Momo no encontrado"
-            description="Puede que este meme haya sido eliminado o el enlace esté mal escrito."
-            action={
-              <Button component={Link} to="/" variant="contained">
-                Volver a Momazos
-              </Button>
-            }
-          />
-        </Card>
+        <LoadingState message="Cargando momo…" />
       </div>
     );
   }
 
-  return <MemeFeed initialFeaturedId={id ?? null} syncUrl />;
+  if (!result?.memes) {
+    return (
+      <div className="meme-feed">
+        {backButton}
+        {result?.error ? (
+          <Alert severity="error">{result.error}</Alert>
+        ) : (
+          <Card>
+            <EmptyState
+              icon="🔍"
+              title="Momo no encontrado"
+              description="Puede que este meme haya sido eliminado o el enlace esté mal escrito."
+              action={
+                <Button component={Link} to="/" variant="contained">
+                  Volver a Momazos
+                </Button>
+              }
+            />
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <MemeFeed
+      key={result.forId}
+      memes={result.memes}
+      initialFeaturedId={id ?? null}
+      syncUrl
+      header={backButton}
+    />
+  );
 }

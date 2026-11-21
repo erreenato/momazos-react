@@ -1,9 +1,11 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert,
   Avatar,
   Box,
+  Button,
   Paper,
   Tab,
   Table,
@@ -14,7 +16,15 @@ import {
   TableRow,
   Tabs,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import {
+  RankingTransition,
+  TRANSITION_SWAP_MS,
+  TRANSITION_TOTAL_MS,
+} from '../components/RankingTransition';
+import type { RankingTransitionKind } from '../components/RankingTransition';
 import {
   getBottomMemes,
   getBottomUsers,
@@ -71,7 +81,17 @@ function PositionCell({ index }: { index: number }) {
   );
 }
 
-function RankingBoard({ variant }: { variant: RankingVariant }) {
+interface RankingBoardProps {
+  variant: RankingVariant;
+  /** Cambia al otro ranking (lo maneja RankingView, que también lanza la transición). */
+  onToggle: () => void;
+  /** true mientras corre la transición: deshabilita el botón. */
+  toggling: boolean;
+  /** true durante los rayos: hace temblar la tabla. */
+  shaking: boolean;
+}
+
+function RankingBoard({ variant, onToggle, toggling, shaking }: RankingBoardProps) {
   const [tab, setTab] = useState<RankingTab>('memes');
   const [memes, setMemes] = useState<Meme[]>([]);
   const [users, setUsers] = useState<RankingUser[]>([]);
@@ -119,7 +139,7 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
   return (
     <Paper
       variant="outlined"
-      className={`ranking-container${variant === 'anti' ? ' ranking-container--inverted' : ''}`}
+      className={`ranking-container${variant === 'anti' ? ' ranking-container--inverted' : ''}${shaking ? ' rt-shake' : ''}`}
       sx={{ borderRadius: 5, p: { xs: 2, sm: 3 } }}
     >
       <Box
@@ -140,11 +160,25 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
           </div>
         </Box>
 
-        <Tabs value={tab} onChange={(_, value: RankingTab) => setTab(value)} aria-label="Tipo de ranking">
-          <Tab value="memes" label="Momos" />
-          <Tab value="users" label="Usuarios" />
-        </Tabs>
+        {/* Botón para cambiar entre Ranking y Anti-Ranking (con transición de rayos / arcoíris).
+            Recuerda que el Anti-Ranking invierte los colores: este botón se ve "al revés" ahí. */}
+        <Button
+          variant="contained"
+          className="ranking-toggle"
+          color={variant === 'top' ? 'error' : 'primary'}
+          onClick={onToggle}
+          disabled={toggling}
+          startIcon={variant === 'top' ? <BoltRoundedIcon /> : <span aria-hidden="true">🌈</span>}
+          sx={{ ml: { sm: 'auto' } }}
+        >
+          {variant === 'top' ? 'Ver Anti-Ranking' : 'Volver al Ranking'}
+        </Button>
       </Box>
+
+      <Tabs value={tab} onChange={(_, value: RankingTab) => setTab(value)} aria-label="Tipo de ranking" sx={{ mt: 1.5 }}>
+        <Tab value="memes" label="Momos" />
+        <Tab value="users" label="Usuarios" />
+      </Tabs>
 
       <Box sx={{ mt: 2 }}>
         {loading ? (
@@ -221,10 +255,53 @@ function RankingBoard({ variant }: { variant: RankingVariant }) {
   );
 }
 
+/**
+ * Ranking y Anti-Ranking en una sola vista. La variante sale de la URL
+ * (/ranking o /anti-ranking), así ambos siguen teniendo un enlace propio.
+ *
+ * Al cambiar con el botón se lanza una transición a pantalla completa:
+ * rayos al ir al Anti-Ranking y arcoíris al volver al Ranking. La navegación
+ * ocurre a mitad de la animación, cuando la pantalla está cubierta.
+ */
 export function RankingView() {
-  return <RankingBoard variant="top" />;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const variant: RankingVariant = location.pathname.startsWith('/anti-ranking') ? 'anti' : 'top';
+  const [transition, setTransition] = useState<RankingTransitionKind | null>(null);
+  const prefersReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+  const timers = useRef<number[]>([]);
+
+  // Limpia los temporizadores si el usuario sale de la vista a mitad de la animación.
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  const toggleVariant = () => {
+    const target = variant === 'top' ? '/anti-ranking' : '/ranking';
+    if (prefersReducedMotion) {
+      navigate(target);
+      return;
+    }
+    setTransition(variant === 'top' ? 'lightning' : 'rainbow');
+    timers.current = [
+      window.setTimeout(() => navigate(target), TRANSITION_SWAP_MS),
+      window.setTimeout(() => setTransition(null), TRANSITION_TOTAL_MS),
+    ];
+  };
+
+  return (
+    <>
+      <RankingBoard
+        variant={variant}
+        onToggle={toggleVariant}
+        toggling={transition !== null}
+        shaking={transition === 'lightning'}
+      />
+      <RankingTransition kind={transition} />
+    </>
+  );
 }
 
-export function AntiRankingView() {
-  return <RankingBoard variant="anti" />;
-}
+/**
+ * Se exporta con otro nombre para la ruta /anti-ranking, pero es el mismo componente:
+ * así React no lo desmonta al cambiar de ruta y la transición no se corta.
+ */
+export const AntiRankingView = RankingView;
