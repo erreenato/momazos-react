@@ -29,3 +29,7 @@ Thumbs.db
 backend/uploads/*
 !backend/uploads/.gitkeep
 backend/.env
+
+test-results/
+playwright-report/
+e2etests/.auth/
