@@ -7,6 +7,8 @@ Mongoose y MongoDB.
 ## Tecnologías principales
 
 - React, React Router, TypeScript y Vite.
+- Material UI (MUI) como librería visual, con tipografía Inter (ver
+  [Guía visual](#guía-visual)).
 - Node.js, Express y TypeScript.
 - MongoDB mediante Mongoose.
 - JWT en cookie `httpOnly` para la autenticación.
@@ -158,6 +160,92 @@ Todos los endpoints del backend utilizan el prefijo `/api`.
 
 Las operaciones protegidas requieren una sesión válida. Las operaciones de
 moderación requieren el rol `moderator`.
+
+## Guía visual
+
+La interfaz usa **Material UI** (`@mui/material` + `@mui/icons-material`).
+Todo el diseño parte de un único tema definido en
+[`frontend/src/theme/theme.ts`](frontend/src/theme/theme.ts), que se aplica a
+toda la app con `<ThemeProvider>` en `frontend/src/main.tsx`.
+
+El tema publica su paleta como variables CSS (`--mui-palette-*`). Las variables
+del CSS original (`--accent`, `--bg`, `--text`, etc. en `frontend/src/index.css`)
+leen esas variables, así que los componentes MUI y el CSS existente usan
+exactamente los mismos colores.
+
+### Colores
+
+| Rol | Claro | Oscuro | Uso |
+| --- | --- | --- | --- |
+| `primary` | `#8900ff` | `#b366ff` | Acciones principales, enlaces, elemento activo del menú. |
+| `secondary` | `#00a6dd` | `#00c2ff` | Acento secundario. |
+| `success` | `#16a34a` | `#22c55e` | Aprobar memes, estado "Aprobado", mensajes de éxito. |
+| `warning` | `#f59f00` | `#fbbf24` | Estado "Pendiente". |
+| `error` | `#dc2626` | `#f87171` | Errores, rechazar/eliminar, puntajes negativos. |
+| `background.default` | `#f4f3ec` | `#1f2028` | Fondo de la página, barra de navegación. |
+| `background.paper` | `#ffffff` | `#16171d` | Tarjetas, diálogos, formularios. |
+| `text.primary` / `text.secondary` | `#08060d` / `#6b6375` | `#f3f4f6` / `#9ca3af` | Títulos / texto secundario. |
+
+El modo claro u oscuro se elige automáticamente según la preferencia del
+sistema operativo (`prefers-color-scheme`).
+
+### Tipografía
+
+- Fuente **Inter** (pesos 400, 500, 600 y 700), cargada con `@fontsource/inter`.
+- Títulos `h1`–`h4` en peso 700; botones en peso 600 y **sin mayúsculas forzadas**.
+
+### Botones
+
+| Variante | Cuándo usarla |
+| --- | --- |
+| `contained` | Acción principal de la vista (Entrar, Publicar, Guardar, Compartir, Aprobar). |
+| `outlined` | Acción secundaria o alternable (reacciones, Editar perfil, Rechazar, Ver ranking). |
+| `text` | Acciones de baja prioridad (Cancelar, Responder, Cerrar sesión). |
+
+- Forma de **píldora** (`border-radius: 999px`) en todos los botones.
+- Color `error` para acciones destructivas (rechazar, eliminar).
+- Mientras se envía una acción, el botón usa la prop `loading` (spinner y botón deshabilitado).
+
+### Espaciados y formas
+
+- Escala de espaciado de MUI: **1 unidad = 8px** (`sx={{ p: 2 }}` = 16px).
+- Separación entre campos de formulario: 16px (`<Stack spacing={2}>`).
+- Radio de borde: 12px por defecto (inputs, alertas), 20px en tarjetas y diálogos.
+
+### Estados hover
+
+- Botones y elementos de lista: fondo/color de hover de MUI.
+- Tarjetas de memes: el borde toma el color de acento.
+- Tarjetas del perfil: se elevan 4px y el borde toma el color de acento.
+- Filas de tablas (ranking, moderación): resaltado con `TableRow hover`.
+
+### Mensajes de error y feedback
+
+- Errores: `<Alert severity="error">` bajo el formulario o sección afectada.
+- Éxito: `<Alert severity="success">` (subir meme) o `<Snackbar>` (moderación, copiar enlace).
+- Validación de formularios: `TextField` con `error` y `helperText` (p. ej. contraseñas que no coinciden).
+- Confirmaciones destructivas: `<ConfirmDialog>` (rechazar o eliminar un meme), nunca `window.confirm`.
+
+### Indicadores de carga y estados vacíos
+
+Componentes compartidos en `frontend/src/components/ui/`:
+
+- `LoadingState`: spinner (`CircularProgress`) con mensaje; variante `compact` para espacios chicos.
+- `EmptyState`: emoji, título, descripción y acción opcional (p. ej. "Subir meme").
+- `ConfirmDialog`: diálogo de confirmación reutilizable.
+- `FormCard`: contenedor común de los formularios (login, registro, subir meme).
+
+### Comportamiento en móvil
+
+| Ancho | Comportamiento |
+| --- | --- |
+| `< 900px` (`md`) | Menú de navegación dentro de un `Drawer` (botón hamburguesa); el perfil muestra solo el avatar. |
+| `900px – 1199px` | Enlaces del menú solo con ícono (con `Tooltip`). |
+| `≥ 1200px` (`lg`) | Enlaces del menú con ícono y texto. |
+| `< 1024px` | El ranking semanal pasa de columna lateral a bloque bajo el contenido. |
+| `< 600px` (`sm`) | Moderación en tarjetas en vez de tabla; el ranking oculta la columna "Autor"; el perfil apila la cabecera. |
+
+Ninguna vista principal genera scroll horizontal a 375px de ancho.
 
 ## Aplicación desplegada
 

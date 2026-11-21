@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Alert, Button, Link as MuiLink, TextField } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
-import './AuthForm.css';
+import { FormCard } from '../components/ui/FormCard';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -47,62 +48,72 @@ export function RegisterView() {
     }
   };
 
+  // Validación visual en vivo: se marca el campo apenas las contraseñas dejan de coincidir.
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+
   return (
-    <div className="auth-form-page">
-      <h2>Crear cuenta</h2>
+    <FormCard
+      title="Crear cuenta"
+      subtitle="Únete a Momazos en menos de un minuto"
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          ¿Ya tienes cuenta?{' '}
+          <MuiLink component={Link} to="/login" state={location.state} sx={{ fontWeight: 600 }}>
+            Inicia sesión
+          </MuiLink>
+        </>
+      }
+    >
+      <TextField
+        id="register-username"
+        label="Nombre de usuario"
+        autoComplete="username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        required
+      />
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <label htmlFor="register-username">Nombre de usuario</label>
-        <input
-          id="register-username"
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
+      <TextField
+        id="register-email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
 
-        <label htmlFor="register-email">Email</label>
-        <input
-          id="register-email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <TextField
+        id="register-password"
+        label="Contraseña"
+        type="password"
+        autoComplete="new-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        helperText={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
+        slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH } }}
+        required
+      />
 
-        <label htmlFor="register-password">Contraseña</label>
-        <input
-          id="register-password"
-          type="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+      <TextField
+        id="register-confirm"
+        label="Repite la contraseña"
+        type="password"
+        autoComplete="new-password"
+        value={confirmPassword}
+        onChange={(e) => setConfirmPassword(e.target.value)}
+        error={passwordsMismatch}
+        helperText={passwordsMismatch ? 'Las contraseñas no coinciden' : ' '}
+        slotProps={{ htmlInput: { minLength: MIN_PASSWORD_LENGTH } }}
+        required
+      />
 
-        <label htmlFor="register-confirm">Repite la contraseña</label>
-        <input
-          id="register-confirm"
-          type="password"
-          autoComplete="new-password"
-          minLength={MIN_PASSWORD_LENGTH}
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-        />
+      {error && <Alert severity="error">{error}</Alert>}
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Creando cuenta…' : 'Registrarme'}
-        </button>
-
-        {error && <p className="auth-form-error" role="alert">{error}</p>}
-      </form>
-
-      <p className="auth-form-switch">
-        ¿Ya tienes cuenta? <Link to="/login" state={location.state}>Inicia sesión</Link>
-      </p>
-    </div>
+      <Button type="submit" variant="contained" size="large" loading={submitting}>
+        Registrarme
+      </Button>
+    </FormCard>
   );
 }

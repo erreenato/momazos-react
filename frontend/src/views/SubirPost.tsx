@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { apiFetch } from '../api/client';
-import './SubirPost.css';
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardMedia,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
+import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded';
+import ComputerRoundedIcon from '@mui/icons-material/ComputerRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
+import { FormCard } from '../components/ui/FormCard';
 
 export function SubirPost() {
   const [title, setTitle] = useState('');
@@ -80,89 +94,97 @@ export function SubirPost() {
 
 
   return (
-    <div className="subir-post">
-      <h2>Subir un momo</h2>
+    <FormCard
+      title="Subir un momo"
+      subtitle="Tu momo quedará pendiente hasta que un moderador lo apruebe"
+      onSubmit={handleSubmit}
+      maxWidth={560}
+    >
+      <TextField
+        id="subir-titulo"
+        label="Título"
+        value={title}
+        onChange={(e) => {
+          setTitle(e.target.value);
+          setSubmitted(false);
+        }}
+        placeholder="Dale un título a tu momo"
+        required
+      />
 
-      <form className="subir-post-form" onSubmit={handleSubmit}>
-        <label htmlFor="subir-titulo">Título</label>
-        <input
-          id="subir-titulo"
-          value={title}
+      {/* Selector de origen de la imagen (antes eran dos radio buttons) */}
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
+        color="primary"
+        size="small"
+        value={mode}
+        onChange={(_, value: 'url' | 'file' | null) => {
+          if (!value) return;
+          setMode(value);
+          setError('');
+        }}
+        aria-label="Origen de la imagen"
+      >
+        <ToggleButton value="url">
+          <LinkRoundedIcon fontSize="small" sx={{ mr: 1 }} />
+          Desde una URL
+        </ToggleButton>
+        <ToggleButton value="file">
+          <ComputerRoundedIcon fontSize="small" sx={{ mr: 1 }} />
+          Desde mi computador
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {mode === 'url' ? (
+        <TextField
+          id="subir-url"
+          label="URL de la imagen"
+          value={imageUrl}
           onChange={(e) => {
-            setTitle(e.target.value);
-            setSubmitted(false);
+            setImageUrl(e.target.value);
+            setError('');
           }}
-          placeholder="Dale un título a tu momo"
-          required
+          placeholder="https://..."
         />
-
-        <div className="subir-post-mode">
-          <label>
-            <input
-              type="radio"
-              checked={mode === 'url'}
-              onChange={() => {
-                setMode('url');
-                setError('');
-              }}
-            />
-            Desde una URL
-          </label>
-          <label>
-            <input
-              type="radio"
-              checked={mode === 'file'}
-              onChange={() => {
-                setMode('file');
-                setError('');
-              }}
-            />
-            Desde mi computador
-          </label>
-        </div>
-
-        {mode === 'url' ? (
-          <>
-            <label htmlFor="subir-url">URL de la imagen</label>
-            <input
-              id="subir-url"
-              value={imageUrl}
-              onChange={(e) => {
-                setImageUrl(e.target.value);
-                setError('');
-              }}
-              placeholder="https://..."
-            />
-            {imageUrl && (
-              <div className="subir-post-preview">
-                <img src={imageUrl} alt="Vista previa del momo" />
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <label htmlFor="subir-archivo">Archivo</label>
+      ) : (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          {/* Patrón de MUI para subir archivos: un Button que actúa como <label> de un input oculto */}
+          <Button component="label" variant="outlined" startIcon={<CloudUploadRoundedIcon />}>
+            Elegir imagen
             <input
               key={fileKey}
               id="subir-archivo"
               type="file"
               accept="image/*"
+              hidden
               onChange={handleFileChange}
             />
-            {file && <span className="subir-post-filename">{file.name}</span>}
-          </>
-        )}
+          </Button>
+          <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0, flex: 1 }}>
+            {file ? file.name : 'Ningún archivo seleccionado'}
+          </Typography>
+        </Box>
+      )}
 
-        {error && <p className="subir-post-error">{error}</p>}
+      {mode === 'url' && imageUrl && (
+        <Card sx={{ borderRadius: 3 }}>
+          <CardMedia
+            component="img"
+            image={imageUrl}
+            alt="Vista previa del momo"
+            sx={{ maxHeight: 320, objectFit: 'contain', bgcolor: 'background.default' }}
+          />
+        </Card>
+      )}
 
-        <button type="submit" disabled={publishing}>
-          {publishing ? 'Publicando…' : 'Publicar'}
-        </button>
+      {error && <Alert severity="error">{error}</Alert>}
 
-        {submitted && (
-          <p className="subir-post-success">¡Tu momo quedó pendiente de moderación!</p>
-        )}
-      </form>
-    </div>
+      <Button type="submit" variant="contained" size="large" loading={publishing}>
+        Publicar
+      </Button>
+
+      {submitted && <Alert severity="success">¡Tu momo quedó pendiente de moderación!</Alert>}
+    </FormCard>
   );
 }

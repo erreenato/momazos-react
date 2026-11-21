@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { Alert } from '@mui/material';
 import type { User } from '../types';
+import { LoadingState } from './ui/LoadingState';
 
 interface ProtectedRouteProps {
   /** Si se indica, además de tener sesión el usuario debe tener este rol. */
@@ -13,7 +15,7 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
   const location = useLocation();
 
   if (loading) {
-    return <p className="route-status">Cargando sesión…</p>;
+    return <LoadingState message="Cargando sesión…" />;
   }
 
   if (!user) {
@@ -21,7 +23,11 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
   }
 
   if (role && user.role !== role) {
-    return <p className="route-status">No tienes permisos para ver esta página.</p>;
+    return (
+      <Alert severity="warning" sx={{ m: 3, width: '100%', maxWidth: 520 }}>
+        No tienes permisos para ver esta página.
+      </Alert>
+    );
   }
 
   return <Outlet />;

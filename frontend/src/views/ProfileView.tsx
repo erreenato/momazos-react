@@ -1,6 +1,25 @@
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import {
+  Alert,
+  Avatar,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  CardMedia,
+  Chip,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { EmptyState } from '../components/ui/EmptyState';
+import { LoadingState } from '../components/ui/LoadingState';
 import { useAuth } from '../auth/useAuth';
 import {
   getUserById,
@@ -22,6 +41,13 @@ const statusLabels: Record<Meme['status'], string> = {
   pending: 'Pendiente',
   approved: 'Aprobado',
   rejected: 'Rechazado',
+};
+
+// Color semántico del tema MUI para cada estado del meme.
+const statusColors: Record<Meme['status'], 'warning' | 'success' | 'error'> = {
+  pending: 'warning',
+  approved: 'success',
+  rejected: 'error',
 };
 
 
@@ -70,7 +96,7 @@ export function ProfileView() {
   if (authLoading || !profileId || (data?.id !== profileId && !error)) {
     return (
       <div className="profile-view">
-        <p className="empty">Cargando perfil…</p>
+        <LoadingState message="Cargando perfil…" />
       </div>
     );
   }
@@ -78,7 +104,7 @@ export function ProfileView() {
   if (error) {
     return (
       <div className="profile-view">
-        <p className="empty" role="alert">{error}</p>
+        <Alert severity="error">{error}</Alert>
       </div>
     );
   }
@@ -86,7 +112,7 @@ export function ProfileView() {
   if (!data?.user) {
     return (
       <div className="profile-view">
-        <p className="empty">No encontramos a este usuario.</p>
+        <EmptyState icon="👻" title="No encontramos a este usuario." />
       </div>
     );
   }
@@ -179,14 +205,11 @@ function ProfileContent({
     }
   };
 
+  // Meme que se quiere eliminar: abre el ConfirmDialog (reemplaza a window.confirm).
+  const [memeToDelete, setMemeToDelete] = useState<Meme | null>(null);
+
   const handleDeleteMeme = async (meme: Meme) => {
     if (!isOwner || deletingId) return;
-
-    const confirmed = window.confirm(
-      `¿Estás segura de que quieres eliminar "${meme.title}"?\n\nEsta acción no se puede deshacer.`,
-    );
-
-    if (!confirmed) return;
 
     setDeletingId(meme.id);
     setDeleteError('');
@@ -212,189 +235,204 @@ function ProfileContent({
       );
     } finally {
       setDeletingId(null);
+      setMemeToDelete(null);
     }
   };
   const showAvatar = editing ? draft.avatarUrl : user.avatarUrl;
 
   return (
     <div className="profile-view">
-      <header className="profile-header">
-        {showAvatar ? (
-          <img
-            className="profile-avatar-image"
-            src={showAvatar}
-            alt={`Avatar de ${user.username}`}
-          />
-        ) : (
-          <div className="profile-avatar">
-            {user.username.charAt(0).toUpperCase()}
-          </div>
-        )}
+      <Paper component="header" variant="outlined" className="profile-header">
+        <Avatar
+          src={showAvatar || undefined}
+          alt={`Avatar de ${user.username}`}
+          sx={{
+            width: { xs: 72, sm: 96 },
+            height: { xs: 72, sm: 96 },
+            fontSize: { xs: 30, sm: 40 },
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, var(--mui-palette-primary-light), var(--mui-palette-primary-dark))',
+          }}
+        >
+          {user.username.charAt(0).toUpperCase()}
+        </Avatar>
 
         <div className="profile-info">
           {editing ? (
-            <div className="edit-form">
-              <label className="field">
-                <span className="field-label">Descripción</span>
-                <textarea
-                  value={draft.description}
-                  rows={3}
-                  maxLength={500}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      description: e.target.value,
-                    }))
-                  }
-                />
-              </label>
+            <Stack spacing={2} sx={{ width: '100%' }}>
+              <TextField
+                label="Descripción"
+                multiline
+                minRows={3}
+                value={draft.description}
+                slotProps={{ htmlInput: { maxLength: 500 } }}
+                helperText={`${draft.description.length}/500`}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    description: e.target.value,
+                  }))
+                }
+              />
 
-              <label className="field">
-                <span className="field-label">
-                  URL de la imagen de perfil
-                </span>
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={draft.avatarUrl}
-                  maxLength={2048}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      avatarUrl: e.target.value,
-                    }))
-                  }
-                />
-              </label>
+              <TextField
+                label="URL de la imagen de perfil"
+                type="url"
+                placeholder="https://..."
+                value={draft.avatarUrl}
+                slotProps={{ htmlInput: { maxLength: 2048 } }}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    avatarUrl: e.target.value,
+                  }))
+                }
+              />
 
-              {saveError && (
-                <p className="empty" role="alert">{saveError}</p>
-              )}
+              {saveError && <Alert severity="error">{saveError}</Alert>}
 
-              <div className="edit-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => void saveChanges()}
-                  disabled={saving}
-                >
-                  {saving ? 'Guardando…' : 'Guardar'}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setEditing(false)}
-                  disabled={saving}
-                >
+              <Stack direction="row" spacing={1}>
+                <Button variant="contained" onClick={() => void saveChanges()} loading={saving}>
+                  Guardar
+                </Button>
+                <Button color="inherit" onClick={() => setEditing(false)} disabled={saving}>
                   Cancelar
-                </button>
-              </div>
-            </div>
+                </Button>
+              </Stack>
+            </Stack>
           ) : (
             <>
               <div className="profile-title-row">
-                <h2 className="profile-username">
+                <Typography variant="h2" component="h2" className="profile-username">
                   {user.username}
-                </h2>
+                </Typography>
 
-                <span
-                  className={`profile-role ${isModerator ? 'role-admin' : 'role-user'
-                    }`}
-                >
-                  {isModerator ? 'Administrador' : 'Usuario'}
-                </span>
+                <Chip
+                  size="small"
+                  color={isModerator ? 'primary' : 'default'}
+                  variant={isModerator ? 'filled' : 'outlined'}
+                  label={isModerator ? 'Administrador' : 'Usuario'}
+                />
 
                 {isOwner && (
-                  <button
-                    type="button"
-                    className="btn btn-edit"
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<EditRoundedIcon />}
                     onClick={startEditing}
+                    sx={{ ml: { sm: 'auto' } }}
                   >
                     Editar perfil
-                  </button>
+                  </Button>
                 )}
               </div>
 
-              <p className="profile-description">
+              <Typography className="profile-description" color={user.description ? 'text.primary' : 'text.secondary'}>
                 {user.description || 'Sin descripción.'}
-              </p>
+              </Typography>
             </>
           )}
         </div>
-      </header>
+      </Paper>
 
       <section className="profile-stats">
         {stats.map((stat) => (
-          <div className="profile-stat" key={stat.label}>
-            <span className="stat-value">{stat.value}</span>
-            <span className="stat-label">{stat.label}</span>
-          </div>
+          <Paper variant="outlined" className="profile-stat" key={stat.label}>
+            <Typography component="span" className="stat-value" color="primary">
+              {stat.value}
+            </Typography>
+            <Typography component="span" variant="body2" color="text.secondary">
+              {stat.label}
+            </Typography>
+          </Paper>
         ))}
       </section>
 
       <section className="profile-memes">
-        <h3 className="section-title">
+        <Typography variant="h3" component="h3" className="section-title">
           {isOwner
             ? 'Mis memes'
             : `Memes de ${user.username}`}
-          {deleteError && (
-            <p className="empty" role="alert">
-              {deleteError}
-            </p>
-          )}
-        </h3>
+        </Typography>
+        {deleteError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {deleteError}
+          </Alert>
+        )}
 
         {userMemes.length === 0 ? (
-          <p className="empty">
-            {isOwner
-              ? 'Aún no has publicado memes.'
-              : 'Este usuario aún no tiene memes disponibles.'}
-          </p>
+          <Paper variant="outlined" sx={{ borderRadius: 4 }}>
+            <EmptyState
+              icon="🖼️"
+              title={isOwner
+                ? 'Aún no has publicado memes.'
+                : 'Este usuario aún no tiene memes disponibles.'}
+              action={isOwner && (
+                <Button component={Link} to="/subir" variant="contained">
+                  Subir mi primer meme
+                </Button>
+              )}
+            />
+          </Paper>
         ) : (
           <div className="memes-grid">
             {userMemes.map((meme) => (
-              <article
-                className="profile-meme-card"
-                key={meme.id}
-              >
-                <img
-                  className="meme-image"
-                  src={meme.imageUrl}
+              <Card className="profile-meme-card" key={meme.id}>
+                <CardMedia
+                  component="img"
+                  image={meme.imageUrl}
                   alt={meme.title}
+                  sx={{ aspectRatio: '1 / 1', objectFit: 'cover' }}
                 />
 
-                <div className="meme-body">
-                  <p className="meme-title">{meme.title}</p>
+                <CardContent sx={{ pb: 1 }}>
+                  <Typography sx={{ fontWeight: 600 }} noWrap title={meme.title}>
+                    {meme.title}
+                  </Typography>
 
-                  {(isOwner || viewerIsModerator) && (
-                    <span className={`meme-status status-${meme.status}`}>
-                      {statusLabels[meme.status]}
-                    </span>
-                  )}
-
-
-                  <p className="meme-score">
-                    Score: {meme.score}
-                  </p>
-                  <p className="meme-likes">
-                    {meme.likes} likes · {meme.dislikes} dislikes
-                    {isOwner && (
-                      <button
-                        type="button"
-                        className="btn btn-delete-meme"
-                        onClick={() => void handleDeleteMeme(meme)}
-                        disabled={deletingId !== null}
-                      >
-                        {deletingId === meme.id ? 'Eliminando…' : 'Eliminar meme'}
-                      </button>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                    {(isOwner || viewerIsModerator) && (
+                      <Chip size="small" color={statusColors[meme.status]} label={statusLabels[meme.status]} />
                     )}
-                  </p>
-                </div>
-              </article>
+                    <Typography variant="body2" color="text.secondary">
+                      Score: {meme.score}
+                    </Typography>
+                  </Stack>
+
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {meme.likes} likes · {meme.dislikes} dislikes
+                  </Typography>
+                </CardContent>
+
+                {isOwner && (
+                  <CardActions sx={{ px: 2, pb: 2, pt: 0 }}>
+                    <Button
+                      size="small"
+                      color="error"
+                      startIcon={<DeleteOutlineRoundedIcon />}
+                      onClick={() => setMemeToDelete(meme)}
+                      disabled={deletingId !== null}
+                    >
+                      Eliminar meme
+                    </Button>
+                  </CardActions>
+                )}
+              </Card>
             ))}
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={memeToDelete !== null}
+        title="¿Eliminar este meme?"
+        message={memeToDelete ? `"${memeToDelete.title}" se eliminará.\nEsta acción no se puede deshacer.` : ''}
+        confirmLabel="Eliminar"
+        color="error"
+        loading={deletingId !== null}
+        onConfirm={() => memeToDelete && void handleDeleteMeme(memeToDelete)}
+        onClose={() => setMemeToDelete(null)}
+      />
     </div>
   );
 }

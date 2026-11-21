@@ -1,8 +1,24 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Avatar,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  List,
+  ListItemAvatar,
+  ListItemButton,
+  ListItemText,
+  Typography,
+} from '@mui/material';
+import ArrowDropUpRoundedIcon from '@mui/icons-material/ArrowDropUpRounded';
 import { getTopMemes } from '../api/meme';
 import type { Meme, User } from '../types';
+import { EmptyState } from './ui/EmptyState';
+import { LoadingState } from './ui/LoadingState';
 import './WeeklyRanking.css';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -47,69 +63,68 @@ export function WeeklyRanking({ memes }: { memes?: Meme[] }) {
     .slice(0, 5);
 
   return (
-    <aside className="weekly-ranking" aria-label="Ranking semanal de memes">
-      <div className="weekly-ranking-header">
-        <span className="weekly-ranking-fire">🔥</span>
-        <div>
-          <h3>Ranking semanal</h3>
-          <p>Los momos más votados de la semana</p>
-        </div>
-      </div>
+    <Card component="aside" className="weekly-ranking" aria-label="Ranking semanal de memes" sx={{ bgcolor: 'background.default' }}>
+      <CardHeader
+        avatar={<span aria-hidden="true" style={{ fontSize: 22 }}>🔥</span>}
+        title="Ranking semanal"
+        subheader="Los momos más votados de la semana"
+        slotProps={{
+          title: { variant: 'subtitle1', fontWeight: 700 },
+          subheader: { variant: 'caption' },
+        }}
+        sx={{ pb: 0 }}
+      />
 
-      {loading ? (
-        <p className="weekly-ranking-empty">Cargando ranking...</p>
-      ) : ranked.length === 0 ? (
-        <p className="weekly-ranking-empty">Aún no hay memes puntuados.</p>
-      ) : (
-        <ol className="weekly-ranking-list">
-          {ranked.map((meme, index) => (
-            <li
-              key={meme.id}
-              className="weekly-ranking-item"
-              onClick={() => navigate(`/meme/${meme.id}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  navigate(`/meme/${meme.id}`);
-                }
-              }}
-            >
-              <span className={`weekly-ranking-rank ${index < 3 ? 'top' : ''}`}>
-                {index < 3 ? MEDALS[index] : index + 1}
-              </span>
+      <CardContent sx={{ pt: 1 }}>
+        {loading ? (
+          <LoadingState compact message="Cargando ranking…" />
+        ) : ranked.length === 0 ? (
+          <EmptyState compact icon="🏁" title="Aún no hay memes puntuados." />
+        ) : (
+          <List dense disablePadding>
+            {ranked.map((meme, index) => (
+              <ListItemButton
+                key={meme.id}
+                onClick={() => navigate(`/meme/${meme.id}`)}
+                sx={{ borderRadius: 2, gap: 1, px: 1 }}
+              >
+                <Typography
+                  component="span"
+                  sx={{ width: 22, textAlign: 'center', fontWeight: 700, fontSize: index < 3 ? 17 : 13, color: 'text.secondary' }}
+                >
+                  {index < 3 ? MEDALS[index] : index + 1}
+                </Typography>
 
-              <img
-                className="weekly-ranking-thumb"
-                src={meme.imageUrl}
-                alt=""
-              />
+                <ListItemAvatar sx={{ minWidth: 0 }}>
+                  <Avatar variant="rounded" src={meme.imageUrl} alt="" sx={{ width: 42, height: 42 }} />
+                </ListItemAvatar>
 
-              <div className="weekly-ranking-info">
-                <span className="weekly-ranking-title">{meme.title}</span>
-                <span className="weekly-ranking-author">
-                  {authorName(meme.author)}
-                </span>
-              </div>
+                <ListItemText
+                  primary={meme.title}
+                  secondary={authorName(meme.author)}
+                  slotProps={{
+                    primary: { noWrap: true, sx: { fontWeight: 600, fontSize: 13 } },
+                    secondary: { sx: { fontSize: 11.5 } },
+                  }}
+                  sx={{ minWidth: 0 }}
+                />
 
-              <span className="weekly-ranking-score">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 4 3 18h18L12 4z" />
-                </svg>
-                {meme.score}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
+                <Chip
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  icon={<ArrowDropUpRoundedIcon />}
+                  label={meme.score}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
 
-      <button
-        type="button"
-        className="weekly-ranking-more"
-        onClick={() => navigate('/ranking')}
-      >
-        Ver ranking completo
-      </button>
-    </aside>
+        <Button fullWidth variant="outlined" sx={{ mt: 2 }} onClick={() => navigate('/ranking')}>
+          Ver ranking completo
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
 import { CURRENT_USER, canSeeMeme, useMemes } from '../memeStore';
@@ -7,6 +7,29 @@ import type { Comment, Meme, User } from '../types';
 import { getCommentsByMeme, postComment, reactToCommentApi } from '../api/comment';
 import { useAuth } from '../auth/useAuth';
 import { reactToMeme } from '../api/meme';
+import {
+  Alert,
+  Avatar as MuiAvatar,
+  Box,
+  Button,
+  Card,
+  Chip,
+  Divider,
+  IconButton,
+  Link as MuiLink,
+  Snackbar,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
+import ThumbDownAltOutlinedIcon from '@mui/icons-material/ThumbDownAltOutlined';
+import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
+import { EmptyState } from '../components/ui/EmptyState';
+import { LoadingState } from '../components/ui/LoadingState';
 import './MemeDetailView.css';
 
 const AVATAR_COLORS = ['#aa3bff', '#ff6b6b', '#4dabf7', '#51cf66', '#ffa94d', '#f783ac', '#20c997'];
@@ -20,9 +43,23 @@ function AuthorName({ author }: { author: User | string }) {
     return <span className="meme-card-author">{author}</span>;
   }
   return (
-    <Link className="meme-card-author" to={`/perfil/${author.id}`}>
+    <MuiLink component={Link} className="meme-card-author" to={`/perfil/${author.id}`} underline="hover">
       {author.username}
-    </Link>
+    </MuiLink>
+  );
+}
+
+/** Etiqueta de estado (pendiente / rechazado) con los colores semánticos del tema. */
+function StatusChip({ status }: { status: Meme['status'] }) {
+  if (status === 'approved') return null;
+  return (
+    <Chip
+      size="small"
+      sx={{ ml: 'auto' }}
+      color={status === 'pending' ? 'warning' : 'error'}
+      variant="outlined"
+      label={status === 'pending' ? 'Pendiente' : 'Rechazado'}
+    />
   );
 }
 
@@ -52,60 +89,43 @@ function timeAgo(dateString?: string): string {
 
 function Avatar({ name, size = 38 }: { name: string; size?: number }) {
   return (
-    <div
-      className="meme-avatar"
-      style={{ background: avatarColor(name), width: size, height: size, fontSize: size * 0.42 }}
-    >
+    <MuiAvatar sx={{ bgcolor: avatarColor(name), width: size, height: size, fontSize: size * 0.42, fontWeight: 700 }}>
       {name.charAt(0).toUpperCase()}
-    </div>
+    </MuiAvatar>
   );
 }
 
-function ThumbUpIcon() {
+/**
+ * Botón de reacción (me gusta / no me gusta / comentarios) usado en las tarjetas.
+ * Reemplaza a las antiguas "píldoras" .meme-pill hechas a mano con un Button de MUI.
+ */
+function ReactionButton({
+  icon,
+  label,
+  active,
+  activeColor = 'primary',
+  ...buttonProps
+}: {
+  icon: ReactNode;
+  label: ReactNode;
+  active: boolean;
+  activeColor?: 'primary' | 'error' | 'inherit';
+  onClick: () => void;
+  disabled?: boolean;
+  'aria-label'?: string;
+  'aria-pressed'?: boolean;
+}) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M7 10v11M2 13.5v5A1.5 1.5 0 0 0 3.5 20H18a2 2 0 0 0 2-1.6l1.2-6A2 2 0 0 0 19.2 10H14V5a2 2 0 0 0-2-2l-2 6.5V20" />
-    </svg>
-  );
-}
-function ThumbDownIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M17 14V3M22 10.5v-5A1.5 1.5 0 0 0 20.5 4H6a2 2 0 0 0-2 1.6l-1.2 6A2 2 0 0 0 4.8 14H10v5a2 2 0 0 0 2 2l2-6.5V4" />
-    </svg>
-  );
-}
-function CommentIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-    </svg>
-  );
-}
-function ShareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <path d="M8.6 13.5l6.8 3.9M15.4 6.6L8.6 10.5" />
-    </svg>
-  );
-}
-function SendIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-    </svg>
-  );
-}
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <circle cx="5" cy="12" r="2" />
-      <circle cx="12" cy="12" r="2" />
-      <circle cx="19" cy="12" r="2" />
-    </svg>
+    <Button
+      size="small"
+      variant={active ? 'contained' : 'outlined'}
+      color={active ? activeColor : 'inherit'}
+      startIcon={icon}
+      sx={active ? undefined : { borderColor: 'divider', color: 'text.primary' }}
+      {...buttonProps}
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -132,36 +152,47 @@ function CommentThread({
   return (
     <li className="comment">
       <div className="comment-row">
-        <div className="comment-avatar" style={{ background: avatarColor(name) }}>
-          {name.charAt(0).toUpperCase()}
-        </div>
+        <Avatar name={name} size={30} />
         <div className="comment-body">
           <div className="comment-header">
             <span className="comment-author">{name}</span>
             <span className="comment-time">{timeAgo(comment.createdAt)}</span>
           </div>
           <p className="comment-content">{comment.content}</p>
-          <div className="comment-actions">
-            <button
-              type="button"
-              className={reactions[comment.id] === 'like' ? 'active-like' : ''}
-              onClick={() => onReact(comment.id, 'like')}
-              disabled={reactingCommentId === comment.id || !canReact}
-              title={canReact ? undefined : 'Inicia sesión para reaccionar'}
-            >
-              <ThumbUpIcon /> {comment.likes}
-            </button>
-            <button
-              type="button"
-              className={reactions[comment.id] === 'dislike' ? 'active-dislike' : ''}
-              onClick={() => onReact(comment.id, 'dislike')}
-              disabled={reactingCommentId === comment.id || !canReact}
-              title={canReact ? undefined : 'Inicia sesión para reaccionar'}
-            >
-              <ThumbDownIcon /> {comment.dislikes}
-            </button>
-            <button type="button" onClick={() => onReply(comment)}>Responder</button>
-          </div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+            {/* Tooltip explica por qué el botón está deshabilitado sin sesión */}
+            <Tooltip title={canReact ? '' : 'Inicia sesión para reaccionar'}>
+              <span>
+                <Button
+                  size="small"
+                  color={reactions[comment.id] === 'like' ? 'primary' : 'inherit'}
+                  startIcon={<ThumbUpAltOutlinedIcon fontSize="small" />}
+                  onClick={() => onReact(comment.id, 'like')}
+                  disabled={reactingCommentId === comment.id || !canReact}
+                  sx={{ minWidth: 0, px: 1, color: reactions[comment.id] === 'like' ? undefined : 'text.secondary' }}
+                >
+                  {comment.likes}
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={canReact ? '' : 'Inicia sesión para reaccionar'}>
+              <span>
+                <Button
+                  size="small"
+                  color={reactions[comment.id] === 'dislike' ? 'error' : 'inherit'}
+                  startIcon={<ThumbDownAltOutlinedIcon fontSize="small" />}
+                  onClick={() => onReact(comment.id, 'dislike')}
+                  disabled={reactingCommentId === comment.id || !canReact}
+                  sx={{ minWidth: 0, px: 1, color: reactions[comment.id] === 'dislike' ? undefined : 'text.secondary' }}
+                >
+                  {comment.dislikes}
+                </Button>
+              </span>
+            </Tooltip>
+            <Button size="small" color="inherit" onClick={() => onReply(comment)} sx={{ color: 'text.secondary', px: 1 }}>
+              Responder
+            </Button>
+          </Box>
         </div>
       </div>
       {replies.length > 0 && (
@@ -354,24 +385,38 @@ function CommentForm({
   return (
     <form className="meme-comment-form" onSubmit={onSubmit}>
       {replyTo && (
-        <div className="meme-comment-replying">
-          Respondiendo a {authorName(replyTo.author)}
-          <button type="button" onClick={onCancelReply} aria-label="Cancelar respuesta">
-            ×
-          </button>
-        </div>
+        <Box sx={{ flex: '1 1 100%' }}>
+          {/* Chip con "x" para cancelar la respuesta */}
+          <Chip
+            size="small"
+            color="primary"
+            variant="outlined"
+            label={`Respondiendo a ${authorName(replyTo.author)}`}
+            onDelete={onCancelReply}
+          />
+        </Box>
       )}
-      <input
-        type="text"
+      <TextField
+        size="small"
         placeholder={disabled ? 'Inicia sesión para comentar' : 'Añade un comentario'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        maxLength={300}
         disabled={disabled}
+        slotProps={{
+          htmlInput: { maxLength: 300, 'aria-label': 'Comentario' },
+          input: { sx: { borderRadius: 999, bgcolor: 'background.paper' } },
+        }}
+        sx={{ flex: '1 1 auto', width: 'auto' }}
       />
-      <button type="submit" disabled={disabled || !value.trim()} aria-label="Enviar comentario">
-        <SendIcon />
-      </button>
+      <IconButton
+        type="submit"
+        color="primary"
+        disabled={disabled || !value.trim()}
+        aria-label="Enviar comentario"
+        sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } }}
+      >
+        <SendRoundedIcon fontSize="small" />
+      </IconButton>
     </form>
   );
 }
@@ -411,57 +456,63 @@ export function FeaturedMemeDetail({
   } = useMemeInteractions(meme);
 
   const authorLabel = authorName(meme.author);
-  const rootRef = useViewTransitionName(`meme-${meme.id}`);
+  const rootRef = useViewTransitionName<HTMLDivElement>(`meme-${meme.id}`);
 
   return (
-    <article className="meme-pin" ref={rootRef}>
+    <Card component="article" className="meme-pin" ref={rootRef}>
       <button type="button" className="meme-pin-media" onClick={onCollapse} aria-label="Achicar momo">
         <img src={meme.imageUrl} alt={meme.title} />
       </button>
 
       <div className="meme-pin-side">
         <div className="meme-pin-toolbar">
-          <button
-            type="button"
-            className={`meme-pin-iconbtn ${vote === 'like' ? 'active-like' : ''}`}
+          <ReactionButton
+            icon={<ThumbUpAltOutlinedIcon />}
+            label={likeCount}
+            active={vote === 'like'}
             onClick={() => toggleVote('like')}
             aria-pressed={vote === 'like'}
             disabled={isReacting}
             aria-label="Me gusta"
-          >
-            <ThumbUpIcon />
-            <span>{likeCount}</span>
-          </button>
-          <button
-            type="button"
-            className={`meme-pin-iconbtn ${vote === 'dislike' ? 'active-dislike' : ''}`}
+          />
+          <ReactionButton
+            icon={<ThumbDownAltOutlinedIcon />}
+            label={dislikeCount}
+            active={vote === 'dislike'}
+            activeColor="error"
             onClick={() => toggleVote('dislike')}
             aria-pressed={vote === 'dislike'}
             disabled={isReacting}
             aria-label="No me gusta"
+          />
+          <IconButton aria-label="Más opciones" size="small">
+            <MoreHorizRoundedIcon />
+          </IconButton>
+
+          <StatusChip status={meme.status} />
+
+          <Button
+            variant="contained"
+            startIcon={<ShareRoundedIcon />}
+            onClick={() => shareMeme(meme, onShare)}
+            sx={{ ml: meme.status === 'approved' ? 'auto' : 1 }}
           >
-            <ThumbDownIcon />
-            <span>{dislikeCount}</span>
-          </button>
-          {!canReact && <span className="meme-auth-hint">Inicia sesión para reaccionar</span>}
-          {reactionError && <span role="alert">{reactionError}</span>}
-          <button type="button" className="meme-pin-iconbtn" aria-label="Más opciones">
-            <MoreIcon />
-          </button>
-
-          {meme.status !== 'approved' && (
-            <span className={`meme-card-status ${meme.status}`}>
-              {meme.status === 'pending' ? 'Pendiente' : 'Rechazado'}
-            </span>
-          )}
-
-          <button type="button" className="meme-pin-cta" onClick={() => shareMeme(meme, onShare)}>
-            <ShareIcon />
             Compartir
-          </button>
+          </Button>
         </div>
 
-        <div className="meme-pin-divider" />
+        {!canReact && (
+          <Typography variant="caption" color="primary" sx={{ px: 2, fontWeight: 600 }}>
+            Inicia sesión para reaccionar
+          </Typography>
+        )}
+        {reactionError && (
+          <Alert severity="error" sx={{ mx: 2, mb: 1 }}>
+            {reactionError}
+          </Alert>
+        )}
+
+        <Divider sx={{ mx: 2 }} />
 
         <p className="meme-pin-title">{meme.title}</p>
 
@@ -473,15 +524,15 @@ export function FeaturedMemeDetail({
           </div>
         </div>
 
-        <div className="meme-pin-divider" />
+        <Divider sx={{ mx: 2 }} />
 
         <p className="meme-pin-comments-heading">{totalComments} comentarios</p>
 
         <ul className="meme-pin-comments-list">
           {commentsLoading ? (
-            <li className="meme-card-comments-empty">Cargando comentarios...</li>
+            <li className="meme-card-comments-empty"><LoadingState compact message="Cargando comentarios…" /></li>
           ) : topLevelComments.length === 0 ? (
-            <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
+            <li className="meme-card-comments-empty"><EmptyState compact icon="💬" title="Sé el primero en comentar este momo." /></li>
           ) : (
             topLevelComments.map((comment) => (
               <CommentThread
@@ -498,7 +549,7 @@ export function FeaturedMemeDetail({
           )}
         </ul>
 
-        {commentError && <p role="alert">{commentError}</p>}
+        {commentError && <Alert severity="error" sx={{ mb: 1 }}>{commentError}</Alert>}
         <CommentForm
           value={newComment}
           onChange={setNewComment}
@@ -508,7 +559,7 @@ export function FeaturedMemeDetail({
           onCancelReply={() => setReplyTo(null)}
         />
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -542,21 +593,17 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
   const authorLabel = authorName(meme.author);
   const approval =
     likeCount + dislikeCount > 0 ? Math.round((likeCount / (likeCount + dislikeCount)) * 100) : null;
-  const rootRef = useViewTransitionName(`meme-${meme.id}`);
+  const rootRef = useViewTransitionName<HTMLDivElement>(`meme-${meme.id}`);
 
   return (
-    <article className="meme-card" ref={rootRef}>
+    <Card component="article" className="meme-card" ref={rootRef}>
       <header className="meme-card-header">
         <Avatar name={authorLabel} />
         <div className="meme-card-authorinfo">
           <AuthorName author={meme.author} />
           <span className="meme-card-time">{timeAgo(meme.createdAt)}</span>
         </div>
-        {meme.status !== 'approved' && (
-          <span className={`meme-card-status ${meme.status}`}>
-            {meme.status === 'pending' ? 'Pendiente' : 'Rechazado'}
-          </span>
-        )}
+        <StatusChip status={meme.status} />
       </header>
 
       <button
@@ -572,50 +619,61 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
       </button>
 
       <div className="meme-card-actions">
-        {approval !== null && <span className="meme-card-approval">🔥 {approval}%</span>}
-        <button
-          type="button"
-          className={`meme-pill like ${vote === 'like' ? 'active' : ''}`}
+        {approval !== null && <Chip size="small" label={`🔥 ${approval}%`} sx={{ fontWeight: 700 }} />}
+        <ReactionButton
+          icon={<ThumbUpAltOutlinedIcon />}
+          label={likeCount}
+          active={vote === 'like'}
           onClick={() => toggleVote('like')}
           aria-pressed={vote === 'like'}
+          aria-label="Me gusta"
           disabled={isReacting}
-        >
-          <ThumbUpIcon />
-          {likeCount}
-        </button>
-        <button
-          type="button"
-          className={`meme-pill dislike ${vote === 'dislike' ? 'active' : ''}`}
+        />
+        <ReactionButton
+          icon={<ThumbDownAltOutlinedIcon />}
+          label={dislikeCount}
+          active={vote === 'dislike'}
+          activeColor="error"
           onClick={() => toggleVote('dislike')}
           aria-pressed={vote === 'dislike'}
+          aria-label="No me gusta"
           disabled={isReacting}
-        >
-          <ThumbDownIcon />
-          {dislikeCount}
-        </button>
-        {!canReact && <span className="meme-auth-hint">Inicia sesión para reaccionar</span>}
-        {reactionError && <span role="alert">{reactionError}</span>}
-        <button
-          type="button"
-          className={`meme-pill ${commentsOpen ? 'active' : ''}`}
+        />
+        <ReactionButton
+          icon={<ChatBubbleOutlineRoundedIcon />}
+          label={totalComments}
+          active={commentsOpen}
           onClick={() => setCommentsOpen((open) => !open)}
+          aria-label="Ver comentarios"
+        />
+        <Button
+          size="small"
+          variant="text"
+          startIcon={<ShareRoundedIcon />}
+          onClick={() => shareMeme(meme, onShare)}
+          sx={{ ml: { sm: 'auto' } }}
         >
-          <CommentIcon />
-          {totalComments}
-        </button>
-        <button type="button" className="meme-pill share" onClick={() => shareMeme(meme, onShare)}>
-          <ShareIcon />
           Compartir
-        </button>
+        </Button>
+        {!canReact && (
+          <Typography variant="caption" color="primary" sx={{ flexBasis: '100%', fontWeight: 600 }}>
+            Inicia sesión para reaccionar
+          </Typography>
+        )}
+        {reactionError && (
+          <Alert severity="error" sx={{ flexBasis: '100%' }}>
+            {reactionError}
+          </Alert>
+        )}
       </div>
 
       {commentsOpen && (
         <div className="meme-card-comments">
           <ul className="meme-card-comments-list">
             {commentsLoading ? (
-              <li className="meme-card-comments-empty">Cargando comentarios...</li>
+              <li className="meme-card-comments-empty"><LoadingState compact message="Cargando comentarios…" /></li>
             ) : topLevelComments.length === 0 ? (
-              <li className="meme-card-comments-empty">Sé el primero en comentar este momo.</li>
+              <li className="meme-card-comments-empty"><EmptyState compact icon="💬" title="Sé el primero en comentar este momo." /></li>
             ) : (
               topLevelComments.map((comment) => (
                 <CommentThread
@@ -632,7 +690,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
             )}
           </ul>
 
-          {commentError && <p role="alert">{commentError}</p>}
+          {commentError && <Alert severity="error" sx={{ mb: 1 }}>{commentError}</Alert>}
           <CommentForm
             value={newComment}
             onChange={setNewComment}
@@ -643,7 +701,7 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
           />
         </div>
       )}
-    </article>
+    </Card>
   );
 }
 
@@ -700,7 +758,13 @@ function MemeFeed({
 
   return (
     <div className="meme-feed">
-      {toast && <div className="meme-feed-toast">{toast}</div>}
+      {/* Snackbar de MUI: aviso temporal ("¡Enlace copiado!"); el cierre automático lo maneja el efecto de arriba */}
+      <Snackbar
+        open={toast !== null}
+        message={toast}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        onClose={() => setToast(null)}
+      />
 
       {orderedMemes.map((meme) =>
         meme.id === featuredId ? (
@@ -710,7 +774,9 @@ function MemeFeed({
         ),
       )}
 
-      <p className="meme-feed-end">Ya viste todos los momos disponibles 🎉</p>
+      <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 1 }}>
+        Ya viste todos los momos disponibles 🎉
+      </Typography>
     </div>
   );
 }
@@ -727,13 +793,18 @@ export function MemeDetailView() {
   if (!exists) {
     return (
       <div className="meme-feed">
-        <div className="meme-card meme-card-notfound">
-          <h2>Momo no encontrado</h2>
-          <p>Puede que este meme haya sido eliminado o el enlace esté mal escrito.</p>
-          <Link className="meme-pill" to="/">
-            Volver a Momazos
-          </Link>
-        </div>
+        <Card>
+          <EmptyState
+            icon="🔍"
+            title="Momo no encontrado"
+            description="Puede que este meme haya sido eliminado o el enlace esté mal escrito."
+            action={
+              <Button component={Link} to="/" variant="contained">
+                Volver a Momazos
+              </Button>
+            }
+          />
+        </Card>
       </div>
     );
   }
