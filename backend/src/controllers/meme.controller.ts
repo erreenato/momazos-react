@@ -213,7 +213,9 @@ export const deleteMeme = async (req: Request, res: Response): Promise<void> => 
 
     try {
       const imageUrl = new URL(meme.imageUrl);
-      const expectedOrigin = `${req.protocol}://${req.get('host')}`;
+      const expectedOrigin =
+        process.env.FRONTEND_URL?.replace(/\/$/, '') ||
+        `${req.protocol}://${req.get('host')}`;
 
       if (
         imageUrl.origin === expectedOrigin &&
@@ -411,8 +413,12 @@ export const createMeme = async (
       }
     }
 
+    const publicOrigin =
+      process.env.FRONTEND_URL?.replace(/\/$/, '') ||
+      `${req.protocol}://${req.get('host')}`;
+
     const finalImageUrl = req.file
-      ? `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`
+      ? `${publicOrigin}/uploads/${req.file.filename}`
       : imageUrl;
 
     if (

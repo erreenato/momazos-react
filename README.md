@@ -161,9 +161,31 @@ moderación requieren el rol `moderator`.
 
 ## Aplicación desplegada
 
-La URL destinada para el despliegue en el servidor del curso es:
+La aplicación se encuentra desplegada y operativa en el servidor del curso CC5003.
 
-<https://fullstack.dcc.uchile.cl:7029/>
+**URL pública:** https://fullstack.dcc.uchile.cl:7039/
 
-**Estado:** el despliegue se encuentra pendiente. La URL quedará disponible
-cuando la aplicación sea publicada correctamente en el servidor del curso.
+### Configuración de producción
+
+- **Frontend:** React, TypeScript y Vite.
+- **Backend:** Node.js, Express y TypeScript.
+- **Base de datos:** MongoDB.
+- **Puerto asignado:** 7039.
+- **Protocolo:** HTTPS.
+- **Gestión del proceso:** PM2 (`momazos-react-7039`).
+
+### Funcionalidades verificadas
+
+- Registro e inicio de sesión.
+- Publicación de memes con imágenes.
+- Visualización y eliminación de memes.
+- Moderación y aprobación de publicaciones.
+- Votaciones positivas y negativas.
+- Publicación y visualización de comentarios.
+- Perfil de usuario y sistema de puntajes.
+- Ranking semanal.
+
+La aplicación utiliza MongoDB para almacenar los datos y mantiene las
+imágenes subidas en el directorio `backend/uploads` del servidor.
+
+**Estado del despliegue:** operativo.
