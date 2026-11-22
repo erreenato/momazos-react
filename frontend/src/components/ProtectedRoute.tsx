@@ -5,7 +5,7 @@ import type { User } from '../types';
 import { LoadingState } from './ui/LoadingState';
 
 interface ProtectedRouteProps {
-  role?: 'user' | 'moderator';
+  role?: User['role'];
 }
 
 export function ProtectedRoute({ role }: ProtectedRouteProps) {
