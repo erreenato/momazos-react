@@ -367,8 +367,14 @@ export const useMemeStore = create<MemeState>()((set, get) => {
     reactToComment: async (memeId, commentId, type) => {
       try {
         const { comment } = await commentApi.reactToCommentApi(commentId, type);
+        // POST /comments/:id/react devuelve el autor sin poblar (solo su id): se conserva el
+        // autor que ya teníamos para no mostrar el id en lugar del nombre de usuario.
         updateComments(memeId, (current) => ({
-          items: current.items.map((item) => (item.id === commentId ? { ...item, ...comment } : item)),
+          items: current.items.map((item) =>
+            item.id === commentId
+              ? { ...item, ...comment, author: typeof comment.author === 'string' ? item.author : comment.author }
+              : item,
+          ),
         }));
       } catch (error) {
         throw toStoreError(error, 'No se pudo registrar la reacción.');
