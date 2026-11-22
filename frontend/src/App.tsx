@@ -12,6 +12,7 @@ import { ProfileView } from './views/ProfileView';
 import { AntiRankingView, RankingView } from './views/RankingView';
 import { RegisterView } from './views/RegisterView';
 import { SubirPost } from './views/SubirPost';
+import { NotFoundView } from './views/NotFoundView';
 import './App.css';
 
 function App() {
@@ -40,7 +41,7 @@ function App() {
                   <Route path="/moderacion" element={<ModerationView />} />
                 </Route>
 
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<NotFoundView />} />
               </Routes>
             </div>
 
