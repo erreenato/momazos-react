@@ -1,6 +1,10 @@
 
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Button, Typography } from '@mui/material';
 import { getApprovedMemes } from '../api/meme';
+import { EmptyState } from '../components/ui/EmptyState';
+import { LoadingState } from '../components/ui/LoadingState';
 import { MemeFeed } from './MemeDetailView';
 import type { Meme } from '../types';
 import './HomeViewStyle.css';
@@ -19,7 +23,7 @@ export function HomeView() {
   if (loading) {
     return (
       <div className="home-container">
-        <p className="home-empty">Cargando momazos...</p>
+        <LoadingState message="Cargando momazos…" />
       </div>
     );
   }
@@ -28,9 +32,20 @@ export function HomeView() {
   return (
     <div className="home-container">
       <h2 className="home-decoration">────୨ৎ────</h2>
-      <h3 className="home-title">¡Bienvenido!</h3>
+      <Typography variant="h1" component="h3" className="home-title">
+        ¡Bienvenido!
+      </Typography>
       {approvedMemes.length === 0 ? (
-        <p className="home-empty">Todavía no hay momos aprobados.</p>
+        <EmptyState
+          icon="🐸"
+          title="Todavía no hay momos aprobados."
+          description="Sé el primero en compartir uno."
+          action={
+            <Button component={Link} to="/subir" variant="contained">
+              Subir meme
+            </Button>
+          }
+        />
       ) : (
         <MemeFeed memes={approvedMemes} />
       )}

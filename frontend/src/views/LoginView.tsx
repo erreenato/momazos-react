@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Alert, Button, Link as MuiLink, TextField } from '@mui/material';
 import { useAuth } from '../auth/useAuth';
-import './AuthForm.css';
+import { FormCard } from '../components/ui/FormCard';
 
 interface LocationState {
   from?: string;
@@ -38,40 +39,45 @@ export function LoginView() {
   };
 
   return (
-    <div className="auth-form-page">
-      <h2>Iniciar sesión</h2>
+    <FormCard
+      title="Iniciar sesión"
+      subtitle="Entra para votar, comentar y subir tus momos"
+      onSubmit={handleSubmit}
+      footer={
+        <>
+          ¿No tienes cuenta?{' '}
+          <MuiLink component={Link} to="/registro" state={location.state} sx={{ fontWeight: 600 }}>
+            Regístrate
+          </MuiLink>
+        </>
+      }
+    >
+      <TextField
+        id="login-email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
 
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <label htmlFor="login-email">Email</label>
-        <input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+      <TextField
+        id="login-password"
+        label="Contraseña"
+        type="password"
+        autoComplete="current-password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        required
+      />
 
-        <label htmlFor="login-password">Contraseña</label>
-        <input
-          id="login-password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+      {error && <Alert severity="error">{error}</Alert>}
 
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Entrando…' : 'Entrar'}
-        </button>
-
-        {error && <p className="auth-form-error" role="alert">{error}</p>}
-      </form>
-
-      <p className="auth-form-switch">
-        ¿No tienes cuenta? <Link to="/registro" state={location.state}>Regístrate</Link>
-      </p>
-    </div>
+      {/* loading: MUI muestra un spinner dentro del botón y lo deshabilita */}
+      <Button type="submit" variant="contained" size="large" loading={submitting}>
+        Entrar
+      </Button>
+    </FormCard>
   );
 }
