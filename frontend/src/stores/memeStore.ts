@@ -110,9 +110,24 @@ function authorIdOf(meme: Meme): string | null {
   return typeof meme.author === 'string' ? null : meme.author.id;
 }
 
+/**
+ * Mezcla memes recién llegados con los que ya estaban en memoria. No todos los endpoints
+ * devuelven lo mismo, así que lo que no viene se conserva:
+ * - un campo ausente o `undefined` (p. ej. `myReaction`) no borra el valor anterior;
+ * - un autor sin poblar (solo el id) no reemplaza al autor completo que ya conocíamos.
+ */
 function mergeMemes(byId: Record<string, Meme>, memes: Meme[]): Record<string, Meme> {
   const next = { ...byId };
-  for (const meme of memes) next[meme.id] = { ...next[meme.id], ...meme };
+  for (const meme of memes) {
+    const previous = next[meme.id];
+    const incoming = Object.fromEntries(
+      Object.entries(meme).filter(([, value]) => value !== undefined),
+    ) as Partial<Meme>;
+    if (previous && typeof incoming.author === 'string' && typeof previous.author !== 'string') {
+      delete incoming.author;
+    }
+    next[meme.id] = { ...previous, ...incoming } as Meme;
+  }
   return next;
 }
 

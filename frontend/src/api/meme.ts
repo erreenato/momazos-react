@@ -53,9 +53,15 @@ function normalizeAuthor(author: ApiAuthor | null): User | string {
   };
 }
 
-/** Convierte cualquier respuesta de meme del backend al tipo `Meme` del frontend. */
+/**
+ * Convierte cualquier respuesta de meme del backend al tipo `Meme` del frontend.
+ *
+ * Los campos opcionales que el endpoint no envía quedan fuera del objeto (no en `null`).
+ * Por ejemplo, GET /users/:id/memes y PATCH /memes/:id/status no traen `myReaction`:
+ * si se pusiera `null`, al mezclarlo en el store se borraría el voto que ya conocíamos.
+ */
 export function normalizeMeme(meme: ApiMeme): Meme {
-  return {
+  const normalized: Meme = {
     id: String(meme.id ?? meme._id),
     title: meme.title,
     imageUrl: meme.imageUrl,
@@ -64,10 +70,11 @@ export function normalizeMeme(meme: ApiMeme): Meme {
     likes: meme.likes ?? 0,
     dislikes: meme.dislikes ?? 0,
     score: meme.score ?? 0,
-    createdAt: meme.createdAt,
-    tags: meme.tags,
-    myReaction: meme.myReaction ?? null,
   };
+  if (meme.createdAt !== undefined) normalized.createdAt = meme.createdAt;
+  if (meme.tags !== undefined) normalized.tags = meme.tags;
+  if (meme.myReaction !== undefined) normalized.myReaction = meme.myReaction;
+  return normalized;
 }
 
 // Obtener los memes aprobados
