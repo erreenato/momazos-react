@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { AUTH_COOKIE_NAME, CSRF_HEADER_NAME, getJwtSecret } from '../config/auth.js';
 import type { IUser } from '../models/User.js';
+import { User } from '../models/User.js';
 
 export type Role = IUser['role'];
 
@@ -38,56 +39,115 @@ const isJwtPayload = (value: unknown): value is JwtPayload => {
  * Exige una sesión válida: JWT en la cookie httpOnly y el header X-CSRF-Token
  * igual al csrfToken guardado dentro del JWT. Deja la sesión en `req.user`.
  */
-export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+
+export const requireAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
+
   if (typeof token !== 'string' || token === '') {
     res.status(401).json({ error: 'No autenticado' });
     return;
   }
 
   let payload: unknown;
+
   try {
     payload = jwt.verify(token, getJwtSecret());
   } catch {
-    res.status(401).json({ error: 'Sesión inválida o expirada' });
+    res.status(401).json({
+      error: 'Sesión inválida o expirada',
+    });
     return;
   }
 
   if (!isJwtPayload(payload)) {
-    res.status(401).json({ error: 'Sesión inválida o expirada' });
+    res.status(401).json({
+      error: 'Sesión inválida o expirada',
+    });
     return;
   }
 
-  // Un sitio externo puede hacer que el navegador mande la cookie, pero no puede leer
-  // el csrfToken (vive en el localStorage de nuestro origen), así que no puede mandar este header.
   if (req.get(CSRF_HEADER_NAME) !== payload.csrf) {
-    res.status(401).json({ error: 'Token CSRF inválido' });
+    res.status(401).json({
+      error: 'Token CSRF inválido',
+    });
     return;
   }
 
-  req.user = { id: payload.sub, role: payload.role };
-  next();
+  try {
+    const user = await User.findById(payload.sub);
+
+    if (!user) {
+      res.status(401).json({
+        error: 'Usuario inexistente o sesión inválida',
+      });
+      return;
+    }
+
+    req.user = {
+      id: String(user._id),
+      role: user.role,
+    };
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
+
 
 /**
  * Igual que `requireAuth` pero sin exigir sesión ni CSRF: si hay una cookie
  * válida deja la sesión en `req.user` y si no, sigue como anónimo. Pensado para
  * endpoints públicos que quieren personalizar la respuesta (p. ej. `myReaction`).
  */
-export const optionalAuth = (req: Request, _res: Response, next: NextFunction): void => {
+
+export const optionalAuth = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
   const token: unknown = req.cookies?.[AUTH_COOKIE_NAME];
-  if (typeof token === 'string' && token !== '') {
-    try {
-      const payload: unknown = jwt.verify(token, getJwtSecret());
-      if (isJwtPayload(payload)) {
-        req.user = { id: payload.sub, role: payload.role };
-      }
-    } catch {
-      // Cookie inválida o expirada: se trata como visitante anónimo.
-    }
+
+  if (typeof token !== 'string' || token === '') {
+    next();
+    return;
   }
-  next();
+
+  let payload: unknown;
+
+  try {
+    payload = jwt.verify(token, getJwtSecret());
+  } catch {
+    // Cookie inválida o expirada: continuar como visitante anónimo.
+    next();
+    return;
+  }
+
+  if (!isJwtPayload(payload)) {
+    next();
+    return;
+  }
+
+  try {
+    const user = await User.findById(payload.sub);
+
+    if (user) {
+      req.user = {
+        id: String(user._id),
+        role: user.role,
+      };
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
+
 
 /** Debe usarse después de `requireAuth`. Responde 403 si el rol no está permitido. */
 export const requireRole =

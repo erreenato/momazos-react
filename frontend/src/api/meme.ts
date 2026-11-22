@@ -49,6 +49,13 @@ export const getApprovedMemes = async () => {
   return memes.map(normalizeMeme);
 };
 
+// Obtener un meme por id. El backend también lo entrega si está pendiente o
+// rechazado, siempre que quien lo pide sea su autor o un moderador.
+export const getMemeById = async (memeId: string) => {
+  const meme = await apiFetch<ApiMeme>(`/memes/${encodeURIComponent(memeId)}`);
+  return normalizeMeme(meme);
+};
+
 // Reaccionar a un meme (Like / Dislike). Requiere sesión.
 export const reactToMeme = async (memeId: string, type: 'like' | 'dislike') => {
   return apiFetch<MemeReactionResponse>(`/memes/${memeId}/react`, {

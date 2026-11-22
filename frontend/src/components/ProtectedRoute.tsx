@@ -1,5 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { Alert } from '@mui/material';
+import type { User } from '../types';
+import { LoadingState } from './ui/LoadingState';
 
 interface ProtectedRouteProps {
   role?: 'user' | 'moderator';
@@ -11,7 +14,7 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
 
   // 1. Esperar mientras se restaura la sesión tras F5
   if (loading) {
-    return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando sesión...</div>;
+    return <LoadingState message="Cargando sesión…" />;
   }
 
   // 2. Si no está autenticado, redirige a /login pasando la ruta original como string
@@ -29,7 +32,11 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
 
   // 3. Si la ruta exige rol de moderador y el usuario no lo tiene, vuelve al inicio
   if (role && user.role !== role) {
-    return <Navigate to="/" replace />;
+    return (
+      <Alert severity="warning" sx={{ m: 3, width: '100%', maxWidth: 520 }}>
+        No tienes permisos para ver esta página.
+      </Alert>
+    );
   }
 
   // 4. Renderiza la ruta hija protegida

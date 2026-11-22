@@ -10,9 +10,15 @@
     "seed": "npm --prefix backend run seed",
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
-    "build": "npm run build:frontend && npm run build:backend"
+    "build": "npm run build:frontend && npm run build:backend",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "@playwright/test": "^1.65.1",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.6",
+    "typescript": "^7.0.2"
   }
 }

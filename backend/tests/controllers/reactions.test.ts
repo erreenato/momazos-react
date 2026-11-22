@@ -153,6 +153,41 @@ describe('GET /api/memes/:id', () => {
       .set('X-CSRF-Token', moderator.csrfToken)
       .expect(200);
   });
+
+
+  test('revokes access to pending memes when moderator role changes', async () => {
+    const normalUserInDb = await User.findOne({
+      username: normalUser.username,
+    });
+
+    assert.ok(normalUserInDb);
+
+    const pending = await createMeme({
+      status: 'pending',
+      author: normalUserInDb._id,
+    });
+
+    // El moderador puede ver el meme antes de perder su rol.
+    await api
+      .get(`/api/memes/${String(pending._id)}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(200);
+
+    // Cambiamos su rol directamente en MongoDB.
+    await User.updateOne(
+      { username: moderatorUser.username },
+      { $set: { role: 'user' } },
+    );
+
+    // La misma sesión ya no debe permitir ver el meme pendiente.
+    await api
+      .get(`/api/memes/${String(pending._id)}`)
+      .set('Cookie', moderator.cookie)
+      .set('X-CSRF-Token', moderator.csrfToken)
+      .expect(404);
+  });
+
 });
 
 describe('PATCH /api/memes/:id', () => {

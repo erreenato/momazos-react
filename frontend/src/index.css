@@ -1,12 +1,21 @@
+/*
+ * Variables de diseño compartidas por el CSS existente.
+ * Ya no tienen colores "a mano": leen la paleta del tema de Material UI
+ * (src/theme/theme.ts), que MUI publica como variables --mui-palette-*.
+ * Así el CSS antiguo y los componentes MUI usan exactamente los mismos colores,
+ * y el modo oscuro se aplica a ambos a la vez.
+ */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --text: var(--mui-palette-text-secondary);
+  --text-h: var(--mui-palette-text-primary);
+  --bg: var(--mui-palette-background-paper);
+  --border: var(--mui-palette-divider);
+  --code-bg: var(--mui-palette-background-default);
+  --accent: var(--mui-palette-primary-main);
+  --accent-bg: rgba(var(--mui-palette-primary-mainChannel) / 0.1);
+  --accent-border: rgba(var(--mui-palette-primary-mainChannel) / 0.5);
+  --danger: var(--mui-palette-error-main);
+  --success: var(--mui-palette-success-main);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
@@ -31,15 +40,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  /* Los colores oscuros los entrega MUI; aquí solo quedan sombras y fondos auxiliares. */
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;

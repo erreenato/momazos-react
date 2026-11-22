@@ -13,10 +13,4 @@
 
 .home-title {
   margin-bottom: 1.5rem;
-  color: var(--text-h);
-}
-
-.home-empty {
-  color: var(--text);
-  padding: 40px 0;
 }
