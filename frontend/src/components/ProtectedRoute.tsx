@@ -5,23 +5,32 @@ import type { User } from '../types';
 import { LoadingState } from './ui/LoadingState';
 
 interface ProtectedRouteProps {
-  /** Si se indica, además de tener sesión el usuario debe tener este rol. */
-  role?: User['role'];
+  role?: 'user' | 'moderator';
 }
 
-/** Envuelve rutas que exigen sesión. Sin sesión redirige a /login y recuerda a dónde se quería ir. */
 export function ProtectedRoute({ role }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading } = useAuth(); // Nota: verifica si en useAuth se llama 'loading' o 'isLoading'
   const location = useLocation();
 
+  // 1. Esperar mientras se restaura la sesión tras F5
   if (loading) {
     return <LoadingState message="Cargando sesión…" />;
   }
 
+  // 2. Si no está autenticado, redirige a /login pasando la ruta original como string
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  }
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
 
+  return (
+    <Navigate
+      to="/login"
+      state={{ from: returnTo }}
+      replace
+    />
+  );
+}
+
+  // 3. Si la ruta exige rol de moderador y el usuario no lo tiene, vuelve al inicio
   if (role && user.role !== role) {
     return (
       <Alert severity="warning" sx={{ m: 3, width: '100%', maxWidth: 520 }}>
@@ -30,5 +39,6 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
     );
   }
 
+  // 4. Renderiza la ruta hija protegida
   return <Outlet />;
 }
