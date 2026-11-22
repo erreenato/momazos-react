@@ -1,13 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useViewTransitionName, withViewTransition } from '../hooks/useViewTransition';
-import { CURRENT_USER, canSeeMeme, useMemes } from '../memeStore';
-import type { Comment, Meme, User } from '../types';
-import { getCommentsByMeme, postComment, reactToCommentApi } from '../api/comment';
-import { useAuth } from '../auth/useAuth';
-import { getApprovedMemes, getMemeById, reactToMeme } from '../api/meme';
-import { ApiError } from '../api/client';
+import type { Comment, Meme, ReactionType, User } from '../types';
+import { selectUser, useAuthStore } from '../stores/authStore';
+import { useComments, useMemeList, useMemeStore } from '../stores/memeStore';
 import {
   Alert,
   Avatar as MuiAvatar,
@@ -135,7 +132,6 @@ function CommentThread({
   comment,
   comments,
   onReply,
-  reactions,
   reactingCommentId,
   onReact,
   canReact,
@@ -143,7 +139,6 @@ function CommentThread({
   comment: Comment;
   comments: Comment[];
   onReply: (comment: Comment) => void;
-  reactions: Record<string, 'like' | 'dislike' | null>;
   reactingCommentId: string | null;
   onReact: (commentId: string, type: 'like' | 'dislike') => void;
   canReact: boolean;
@@ -167,11 +162,11 @@ function CommentThread({
               <span>
                 <Button
                   size="small"
-                  color={reactions[comment.id] === 'like' ? 'primary' : 'inherit'}
+                  color={comment.myReaction === 'like' ? 'primary' : 'inherit'}
                   startIcon={<ThumbUpAltOutlinedIcon fontSize="small" />}
                   onClick={() => onReact(comment.id, 'like')}
                   disabled={reactingCommentId === comment.id || !canReact}
-                  sx={{ minWidth: 0, px: 1, color: reactions[comment.id] === 'like' ? undefined : 'text.secondary' }}
+                  sx={{ minWidth: 0, px: 1, color: comment.myReaction === 'like' ? undefined : 'text.secondary' }}
                 >
                   {comment.likes}
                 </Button>
@@ -181,11 +176,11 @@ function CommentThread({
               <span>
                 <Button
                   size="small"
-                  color={reactions[comment.id] === 'dislike' ? 'error' : 'inherit'}
+                  color={comment.myReaction === 'dislike' ? 'error' : 'inherit'}
                   startIcon={<ThumbDownAltOutlinedIcon fontSize="small" />}
                   onClick={() => onReact(comment.id, 'dislike')}
                   disabled={reactingCommentId === comment.id || !canReact}
-                  sx={{ minWidth: 0, px: 1, color: reactions[comment.id] === 'dislike' ? undefined : 'text.secondary' }}
+                  sx={{ minWidth: 0, px: 1, color: comment.myReaction === 'dislike' ? undefined : 'text.secondary' }}
                 >
                   {comment.dislikes}
                 </Button>
@@ -205,7 +200,6 @@ function CommentThread({
               comment={reply}
               comments={comments}
               onReply={onReply}
-              reactions={reactions}
               reactingCommentId={reactingCommentId}
               onReact={onReact}
               canReact={canReact}
@@ -217,75 +211,54 @@ function CommentThread({
   );
 }
 
-function useMemeInteractions(meme: Meme) {
-  const { user } = useAuth();
-  // Si el backend ya nos dice qué votó este usuario, arrancamos con ese estado.
-  const [vote, setVote] = useState<'like' | 'dislike' | null>(meme.myReaction ?? null);
-  const [likes, setLikes] = useState<number>(meme.likes);
-  const [dislikes, setDislikes] = useState<number>(meme.dislikes);
-  const [isReacting, setIsReacting] = useState(false);
-  const [reactionError, setReactionError] = useState<string | null>(null);
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+    return error.message;
+  }
+  return fallback;
+}
 
+/**
+ * Votos y comentarios de un meme. Los datos (likes, voto propio, comentarios) salen
+ * del store global de memes, así un voto en el feed se ve también en el ranking o
+ * en /meme/:id. Lo único local es el estado del formulario y los avisos de error.
+ */
+function useMemeInteractions(meme: Meme) {
+  const user = useAuthStore(selectUser);
+  const isReacting = useMemeStore((state) => state.reactingIds[meme.id] === true);
+  const reactToMeme = useMemeStore((state) => state.reactToMeme);
+  const fetchComments = useMemeStore((state) => state.fetchComments);
+  const addComment = useMemeStore((state) => state.addComment);
+  const reactToComment = useMemeStore((state) => state.reactToComment);
+  const commentsState = useComments(meme.id);
+  const comments = commentsState.items;
+
+  const [reactionError, setReactionError] = useState<string | null>(null);
   const [newComment, setNewComment] = useState('');
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(true);
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [commentReactions, setCommentReactions] = useState<
-    Record<string, 'like' | 'dislike' | null>
-  >({});
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reactingCommentId, setReactingCommentId] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    getCommentsByMeme(meme.id)
-      .then((loadedComments) => {
-        if (!cancelled) {
-          setComments(loadedComments);
-          setCommentError(null);
-          setCommentsLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setCommentError(err instanceof Error ? err.message : 'No se pudieron cargar los comentarios.');
-          setCommentsLoading(false);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCommentsLoading(false);
-      });
+    void fetchComments(meme.id);
+  }, [fetchComments, meme.id]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [meme.id]);
-
+  const vote = meme.myReaction ?? null;
   const topLevelComments = comments.filter((c) => c.parentType === 'Meme' && c.parentId === meme.id);
   const totalComments = comments.length;
+  const commentError = actionError ?? commentsState.error?.message ?? null;
 
-  const toggleVote = async (type: 'like' | 'dislike') => {
+  const toggleVote = async (type: ReactionType) => {
     // Reaccionar exige sesión: el backend lo rechaza igual, pero damos feedback inmediato.
     if (!user) {
       setReactionError('Inicia sesión para reaccionar.');
       return;
     }
-    // Un solo voto por publicación: repetir el mismo voto no hace nada.
-    if (isReacting || vote === type) return;
-
-    setIsReacting(true);
     setReactionError(null);
     try {
-      const response = await reactToMeme(meme.id, type);
-      setLikes(response.meme.likes);
-      setDislikes(response.meme.dislikes);
-      setVote(response.meme.myReaction);
+      await reactToMeme(meme.id, type);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'No se pudo registrar la reacción.';
-      console.error('Error al enviar reacción al backend:', err);
-      setReactionError(message);
-    } finally {
-      setIsReacting(false);
+      setReactionError(errorMessage(err, 'No se pudo registrar la reacción.'));
     }
   };
 
@@ -294,41 +267,29 @@ function useMemeInteractions(meme: Meme) {
     const content = newComment.trim();
     if (!content || !user) return;
 
-    setCommentError(null);
+    setActionError(null);
     try {
-      const comment = await postComment(
-        content,
-        replyTo?.id ?? meme.id,
-        replyTo ? 'Comment' : 'Meme',
-      );
-      setComments((currentComments) => [comment, ...currentComments]);
+      await addComment(meme.id, content, replyTo);
       setNewComment('');
       setReplyTo(null);
     } catch (err) {
-      setCommentError(err instanceof Error ? err.message : 'No se pudo publicar el comentario.');
+      setActionError(errorMessage(err, 'No se pudo publicar el comentario.'));
     }
   };
 
-  const handleCommentReaction = async (commentId: string, type: 'like' | 'dislike') => {
+  const handleCommentReaction = async (commentId: string, type: ReactionType) => {
     if (!user) {
-      setCommentError('Inicia sesión para reaccionar.');
+      setActionError('Inicia sesión para reaccionar.');
       return;
     }
     if (reactingCommentId) return;
 
     setReactingCommentId(commentId);
-    setCommentError(null);
+    setActionError(null);
     try {
-      const response = await reactToCommentApi(commentId, type);
-      setComments((currentComments) =>
-        currentComments.map((comment) => (comment.id === commentId ? response.comment : comment)),
-      );
-      setCommentReactions((currentReactions) => ({
-        ...currentReactions,
-        [commentId]: response.comment.myReaction ?? null,
-      }));
+      await reactToComment(meme.id, commentId, type);
     } catch (err) {
-      setCommentError(err instanceof Error ? err.message : 'No se pudo registrar la reacción.');
+      setActionError(errorMessage(err, 'No se pudo registrar la reacción.'));
     } finally {
       setReactingCommentId(null);
     }
@@ -339,18 +300,17 @@ function useMemeInteractions(meme: Meme) {
     toggleVote,
     isReacting,
     reactionError,
-    likeCount: likes,
-    dislikeCount: dislikes,
+    likeCount: meme.likes,
+    dislikeCount: meme.dislikes,
     topLevelComments,
     totalComments,
     comments,
-    commentsLoading,
+    commentsLoading: !commentsState.loaded && commentsState.error === null,
     commentError,
     canComment: user !== null,
     canReact: user !== null,
     replyTo,
     setReplyTo,
-    commentReactions,
     reactingCommentId,
     handleCommentReaction,
     newComment,
@@ -449,7 +409,6 @@ export function FeaturedMemeDetail({
     canReact,
     replyTo,
     setReplyTo,
-    commentReactions,
     reactingCommentId,
     handleCommentReaction,
     newComment,
@@ -542,7 +501,6 @@ export function FeaturedMemeDetail({
                 comment={comment}
                 comments={comments}
                 onReply={setReplyTo}
-                reactions={commentReactions}
                 reactingCommentId={reactingCommentId}
                 onReact={handleCommentReaction}
                 canReact={canReact}
@@ -584,7 +542,6 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
     canReact,
     replyTo,
     setReplyTo,
-    commentReactions,
     reactingCommentId,
     handleCommentReaction,
     newComment,
@@ -683,7 +640,6 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
                   comment={comment}
                   comments={comments}
                   onReply={setReplyTo}
-                  reactions={commentReactions}
                   reactingCommentId={reactingCommentId}
                   onReact={handleCommentReaction}
                   canReact={canReact}
@@ -713,29 +669,37 @@ function MemeFeedCard({ meme, onShare }: { meme: Meme; onShare: (message: string
  * shrinks the previous one back down; clicking the featured image shrinks it back to a card.
  * Used both as the standalone `/meme/:id` page and embedded in the home feed.
  */
+function rotateTo(memes: Meme[], anchorId: string | null): Meme[] {
+  const index = anchorId ? memes.findIndex((m) => m.id === anchorId) : -1;
+  return index <= 0 ? memes : [...memes.slice(index), ...memes.slice(0, index)];
+}
+
 function MemeFeed({
-  memes: memesProp,
+  memes,
   initialFeaturedId = null,
   syncUrl = false,
   header = null,
 }: {
-  memes?: Meme[];
+  memes: Meme[];
   initialFeaturedId?: string | null;
   syncUrl?: boolean;
   /** Contenido opcional sobre el feed (p. ej. el botón "Volver" en /meme/:id). */
   header?: ReactNode;
 }) {
   const navigate = useNavigate();
-  const storeMemes = useMemes();
-  // Sin lista explícita, solo se muestran los memes que el usuario actual puede ver.
-  const memes = memesProp ?? storeMemes.filter((meme) => canSeeMeme(CURRENT_USER, meme));
   const [toast, setToast] = useState<string | null>(null);
 
-  const initialIndex = initialFeaturedId ? memes.findIndex((m) => m.id === initialFeaturedId) : -1;
-  // Fixed once so the list doesn't reshuffle every time the featured meme changes.
-  const [orderedMemes] = useState<Meme[]>(() =>
-    initialIndex < 0 ? memes : [...memes.slice(initialIndex), ...memes.slice(0, initialIndex)],
-  );
+  // El meme con el que se abrió la página queda primero. El orden se fija al montar para
+  // que la lista no salte al cambiar el meme agrandado o al votar (que cambia el puntaje);
+  // los datos de cada meme sí se actualizan, porque vienen del store. Los memes que
+  // lleguen después (p. ej. uno recién aprobado) se agregan al final.
+  const [frozenOrder] = useState<string[]>(() => rotateTo(memes, initialFeaturedId).map((m) => m.id));
+  const orderedMemes = useMemo(() => {
+    const byId = new Map(memes.map((m) => [m.id, m]));
+    const kept = frozenOrder.flatMap((memeId) => byId.get(memeId) ?? []);
+    const added = memes.filter((m) => !frozenOrder.includes(m.id));
+    return [...kept, ...added];
+  }, [memes, frozenOrder]);
   const [featuredId, setFeaturedId] = useState<string | null>(initialFeaturedId ?? null);
   // Keep in sync when the prop changes from outside our own clicks (e.g. a direct link or
   // browser back/forward) — adjusted during render rather than an effect, per React's
@@ -803,35 +767,32 @@ export function MemeDetailView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const [result, setResult] = useState<{ forId: string; memes: Meme[] | null; error?: string } | null>(null);
 
-  // Si el meme ya está en el feed cargado (el usuario agrandó otro meme de la misma
-  // página), no se vuelve a pedir: así la animación no se corta ni la lista se recarga.
-  const alreadyLoaded = result?.memes?.some((m) => m.id === id) ?? false;
+  const selectMeme = useMemeStore((state) => state.selectMeme);
+  const fetchFeed = useMemeStore((state) => state.fetchFeed);
+  const byId = useMemeStore((state) => state.byId);
+  const detail = useMemeStore((state) => state.detail);
+  const feed = useMemeList('feed');
+  const generation = useMemeStore((state) => state.generation);
+
+  // Meme con el que se armó la página. Si el usuario agranda otro meme del mismo feed
+  // la URL cambia pero el ancla no: así la animación no se corta ni la lista se recarga.
+  const [anchorId, setAnchorId] = useState<string | undefined>(id);
+  if (id !== anchorId && !feed.memes.some((m) => m.id === id)) {
+    setAnchorId(id);
+  }
 
   useEffect(() => {
-    if (!id || alreadyLoaded) return;
-    let cancelled = false;
+    void fetchFeed();
+  }, [fetchFeed, generation]);
 
-    Promise.all([getMemeById(id), getApprovedMemes().catch(() => [] as Meme[])])
-      .then(([meme, approved]) => {
-        if (cancelled) return;
-        setResult({ forId: id, memes: [meme, ...approved.filter((m) => m.id !== meme.id)] });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const notFound = err instanceof ApiError && (err.status === 404 || err.status === 400);
-        setResult({
-          forId: id,
-          memes: null,
-          error: notFound ? undefined : err instanceof Error ? err.message : 'No se pudo cargar el meme.',
-        });
-      });
+  useEffect(() => {
+    if (!id) return;
+    void selectMeme(id);
+  }, [id, selectMeme, generation]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [id, alreadyLoaded]);
+  // Al salir de la vista ya no hay meme seleccionado.
+  useEffect(() => () => void selectMeme(null), [selectMeme]);
 
   // "Volver" solo tiene sentido si se llegó desde otra página de la app.
   const canGoBack = location.key !== 'default';
@@ -846,7 +807,10 @@ export function MemeDetailView() {
     </Button>
   );
 
-  if (!alreadyLoaded && result?.forId !== id) {
+  const anchor = anchorId ? byId[anchorId] : undefined;
+  const anchorError = detail.id === anchorId ? detail.error : null;
+
+  if (!anchor && !anchorError) {
     return (
       <div className="meme-feed">
         <LoadingState message="Cargando momo…" />
@@ -854,12 +818,13 @@ export function MemeDetailView() {
     );
   }
 
-  if (!result?.memes) {
+  if (!anchor) {
+    const notFound = anchorError?.status === 404 || anchorError?.status === 400;
     return (
       <div className="meme-feed">
         {backButton}
-        {result?.error ? (
-          <Alert severity="error">{result.error}</Alert>
+        {!notFound ? (
+          <Alert severity="error">{anchorError?.message}</Alert>
         ) : (
           <Card>
             <EmptyState
@@ -878,10 +843,13 @@ export function MemeDetailView() {
     );
   }
 
+  // Debajo del meme abierto se muestran los demás memes aprobados, como en el feed.
+  const memes = [anchor, ...feed.memes.filter((m) => m.id !== anchor.id)];
+
   return (
     <MemeFeed
-      key={result.forId}
-      memes={result.memes}
+      key={anchor.id}
+      memes={memes}
       initialFeaturedId={id ?? null}
       syncUrl
       header={backButton}

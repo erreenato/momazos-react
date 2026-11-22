@@ -25,13 +25,7 @@ import {
   TRANSITION_TOTAL_MS,
 } from '../components/RankingTransition';
 import type { RankingTransitionKind } from '../components/RankingTransition';
-import {
-  getBottomMemes,
-  getBottomUsers,
-  getTopMemes,
-  getTopUsers,
-} from '../api/meme';
-import type { RankingUser } from '../api/meme';
+import { useMemeStore, useRanking } from '../stores/memeStore';
 import type { Meme } from '../types';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
@@ -93,48 +87,19 @@ interface RankingBoardProps {
 
 function RankingBoard({ variant, onToggle, toggling, shaking }: RankingBoardProps) {
   const [tab, setTab] = useState<RankingTab>('memes');
-  const [memes, setMemes] = useState<Meme[]>([]);
-  const [users, setUsers] = useState<RankingUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Memes y usuarios del ranking vienen del store global de memes.
+  const { memes, users, loaded, error: rankingError } = useRanking(variant);
+  const fetchRanking = useMemeStore((state) => state.fetchRanking);
+  const generation = useMemeStore((state) => state.generation);
+  const loading = !loaded && !rankingError;
+  const error = rankingError?.message ?? null;
 
   const config = VARIANT_CONFIG[variant];
 
+  // Se vuelve a pedir al entrar (los puntajes cambian); lo ya cargado se muestra mientras tanto.
   useEffect(() => {
-    let cancelled = false;
-
-    setLoading(true);
-    setError(null);
-
-    const load =
-      variant === 'top'
-        ? Promise.all([getTopMemes(), getTopUsers()])
-        : Promise.all([getBottomMemes(), getBottomUsers()]);
-
-    load
-      .then(([memesData, usersData]) => {
-        if (cancelled) return;
-
-        setMemes(memesData);
-        setUsers(usersData);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-
-        console.error(
-          `Error al cargar ${variant === 'top' ? 'ranking' : 'anti-ranking'}:`,
-          err
-        );
-        setError('No se pudo cargar la tabla. Intenta de nuevo más tarde.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [variant]);
+    void fetchRanking(variant);
+  }, [fetchRanking, variant, generation]);
 
   return (
     <Paper

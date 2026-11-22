@@ -22,19 +22,15 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingState } from '../components/ui/LoadingState';
 import { useAuth } from '../auth/useAuth';
-import {
-  getUserById,
-  getUserMemes,
-  updateMyProfile,
-  deleteMyMeme,
-} from '../services/profileService';
+import { getUserById, updateMyProfile } from '../services/profileService';
+import { useAuthStore } from '../stores/authStore';
+import { useMemeList, useMemeStore } from '../stores/memeStore';
 import type { User, Meme } from '../types';
 import './ProfileView.css';
 
 interface ProfileData {
   id: string;
   user: User | null;
-  memes: Meme[];
 }
 
 
@@ -60,6 +56,8 @@ export function ProfileView() {
 
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState('');
+  const fetchUserMemes = useMemeStore((state) => state.fetchUserMemes);
+  const generation = useMemeStore((state) => state.generation);
 
   useEffect(() => {
     if (!profileId || authLoading) return;
@@ -70,11 +68,11 @@ export function ProfileView() {
       try {
         setError('');
 
-        const user = await getUserById(profileId!);
-        const memes = user ? await getUserMemes(profileId!) : [];
+        // El perfil se consulta aquí; sus memes van al store global de memes.
+        const [user] = await Promise.all([getUserById(profileId!), fetchUserMemes(profileId!)]);
 
         if (!cancelled) {
-          setData({ id: profileId!, user, memes });
+          setData({ id: profileId!, user });
         }
       } catch (err) {
         if (!cancelled) {
@@ -92,7 +90,7 @@ export function ProfileView() {
     return () => {
       cancelled = true;
     };
-  }, [profileId, authLoading]);
+  }, [profileId, authLoading, fetchUserMemes, generation]);
 
   if (authLoading || !profileId || (data?.id !== profileId && !error)) {
     return (
@@ -122,7 +120,6 @@ export function ProfileView() {
     <ProfileContent
       key={data.user.id}
       initialUser={data.user}
-      memes={data.memes}
       isOwner={viewer?.id === data.user.id}
       viewerIsModerator={viewer?.role === 'moderator'}
     />
@@ -131,14 +128,12 @@ export function ProfileView() {
 
 interface ProfileContentProps {
   initialUser: User;
-  memes: Meme[];
   isOwner: boolean;
   viewerIsModerator: boolean;
 }
 
 function ProfileContent({
   initialUser,
-  memes,
   isOwner,
   viewerIsModerator,
 }: ProfileContentProps) {
@@ -146,7 +141,9 @@ function ProfileContent({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [userMemes, setUserMemes] = useState<Meme[]>(memes);
+  const { memes: userMemes, error: memesError } = useMemeList(`user:${initialUser.id}`);
+  const deleteMeme = useMemeStore((state) => state.deleteMeme);
+  const setSessionUser = useAuthStore((state) => state.setUser);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
 
@@ -194,6 +191,8 @@ function ProfileContent({
       });
 
       setUser(updatedUser);
+      // Mantiene el usuario en sesión al día (avatar del TopNav, etc.).
+      if (isOwner) setSessionUser(updatedUser);
       setEditing(false);
     } catch (err) {
       setSaveError(
@@ -216,24 +215,18 @@ function ProfileContent({
     setDeleteError('');
 
     try {
-      await deleteMyMeme(meme.id);
-
-      setUserMemes((current) =>
-        current.filter((item) => item.id !== meme.id),
-      );
+      // El store lo quita de todas las listas (perfil, feed, rankings).
+      await deleteMeme(meme.id);
 
       // Consultar el perfil actualizado para reflejar el nuevo puntaje.
       const updatedUser = await getUserById(user.id);
 
       if (updatedUser) {
         setUser(updatedUser);
+        if (isOwner) setSessionUser(updatedUser);
       }
     } catch (err) {
-      setDeleteError(
-        err instanceof Error
-          ? err.message
-          : 'No se pudo eliminar el meme.',
-      );
+      setDeleteError((err as { message?: string }).message ?? 'No se pudo eliminar el meme.');
     } finally {
       setDeletingId(null);
       setMemeToDelete(null);
@@ -355,6 +348,11 @@ function ProfileContent({
             ? 'Mis memes'
             : `Memes de ${user.username}`}
         </Typography>
+        {memesError && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {memesError.message}
+          </Alert>
+        )}
         {deleteError && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {deleteError}

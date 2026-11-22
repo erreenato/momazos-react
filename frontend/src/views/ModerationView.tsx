@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { apiFetch } from '../api/client';
+import { useMemeList, useMemeStore } from '../stores/memeStore';
 import type { Meme } from '../types';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -36,10 +36,13 @@ function authorOf(meme: Meme): string {
 }
 
 export function ModerationView() {
-    // Memes pendientes que entrega el backend (solo moderadores).
-    const [pendingMemes, setPendingMemes] = useState<Meme[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // Cola de moderación: vive en el store global de memes (solo moderadores).
+    const { memes: pendingMemes, loaded, error: loadError } = useMemeList('pending');
+    const fetchPending = useMemeStore((state) => state.fetchPending);
+    const moderate = useMemeStore((state) => state.moderateMeme);
+    const generation = useMemeStore((state) => state.generation);
+    const loading = !loaded && !loadError;
+    const error = loadError?.message ?? null;
 
     // Guarda el último mensaje de acción para dar feedback visual (Snackbar).
     const [message, setMessage] = useState<{ text: string; severity: 'success' | 'error' } | null>(null);
@@ -49,25 +52,15 @@ export function ModerationView() {
     const [memeToReject, setMemeToReject] = useState<Meme | null>(null);
 
     useEffect(() => {
-        apiFetch<Meme[]>('/moderation/memes')
-            .then(setPendingMemes)
-            .catch((err: unknown) => {
-                setError(err instanceof Error ? err.message : 'No se pudieron cargar los memes.');
-            })
-            .finally(() => setLoading(false));
-    }, []);
+        void fetchPending();
+    }, [fetchPending, generation]);
 
     const moderateMeme = async (memeId: string, status: ModerationDecision) => {
         setUpdatingId(memeId);
         setMessage(null);
         try {
-            await apiFetch<Meme>(`/memes/${memeId}/status`, {
-                method: 'PATCH',
-                body: { status },
-            });
-            setPendingMemes((currentMemes) =>
-                currentMemes.filter((meme) => meme.id !== memeId)
-            );
+            // El store saca el meme de la cola y, si se aprueba, lo agrega al feed.
+            await moderate(memeId, status);
             setMessage({
                 severity: 'success',
                 text: status === 'approved'
@@ -77,7 +70,7 @@ export function ModerationView() {
         } catch (err) {
             setMessage({
                 severity: 'error',
-                text: err instanceof Error ? err.message : 'No se pudo moderar el meme.',
+                text: (err as { message?: string }).message ?? 'No se pudo moderar el meme.',
             });
         } finally {
             setUpdatingId(null);
