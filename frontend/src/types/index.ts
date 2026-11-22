@@ -1,7 +1,11 @@
+export type Role = 'user' | 'moderator';
+export type MemeStatus = 'pending' | 'approved' | 'rejected';
+export type ReactionType = 'like' | 'dislike';
+
 export interface User {
   id: string;
   username: string;
-  role: 'user' | 'moderator';
+  role: Role;
   description?: string;
   score: number;
   avatarUrl?: string;
@@ -12,14 +16,14 @@ export interface Meme {
   title: string;
   imageUrl: string;
   author: User | string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: MemeStatus;
   likes: number;
   dislikes: number;
   score: number;
   createdAt?: string;
   tags?: string[];
   /** Voto del usuario en sesión (null si es anónimo o no ha votado). */
-  myReaction?: 'like' | 'dislike' | null;
+  myReaction?: ReactionType | null;
 }
 
 export interface Comment {
@@ -31,8 +35,17 @@ export interface Comment {
   memeId?: string; // ID del Meme al que pertenece el comentario
   likes: number;
   dislikes: number;
-  score: number; // <--- Nuevo campo
+  score: number;
   createdAt?: string;
   /** Voto del usuario en sesión (null si es anónimo o no ha votado). */
-  myReaction?: 'like' | 'dislike' | null;
+  myReaction?: ReactionType | null;
+}
+
+/**
+ * Formato de error que guardan los stores. `message` viene del body `{ error }`
+ * del backend (o un texto por defecto) y `status` es el código HTTP, si lo hubo.
+ */
+export interface StoreError {
+  message: string;
+  status?: number;
 }

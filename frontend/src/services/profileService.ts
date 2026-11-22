@@ -1,11 +1,6 @@
 
 import { apiFetch, ApiError } from '../api/client';
-import type { Meme, User } from '../types';
-
-interface ApiMeme extends Omit<Meme, 'id' | 'author'> {
-  _id: string;
-  author: string | { id?: string; username: string };
-}
+import type { User } from '../types';
 
 export function canViewPrivateMemes(
   viewer: User | null,
@@ -26,29 +21,11 @@ export async function getUserById(id: string): Promise<User | null> {
   }
 }
 
-export async function getUserMemes(userId: string): Promise<Meme[]> {
-  const memes = await apiFetch<ApiMeme[]>(
-    `/users/${encodeURIComponent(userId)}/memes`,
-  );
-
-  return memes.map(({ _id, author, ...meme }) => ({
-    ...meme,
-    id: _id,
-    author: typeof author === 'string' ? author : author.username,
-  }));
-}
-
 export async function updateMyProfile(
   changes: Pick<User, 'description' | 'avatarUrl'>,
 ): Promise<User> {
   return apiFetch<User>('/users/me', {
     method: 'PATCH',
     body: changes,
-  });
-}
-
-export async function deleteMyMeme(memeId: string): Promise<void> {
-  await apiFetch(`/memes/${encodeURIComponent(memeId)}`, {
-    method: 'DELETE',
   });
 }

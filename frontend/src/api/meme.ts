@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { Meme } from '../types';
+import type { Meme, MemeStatus, ReactionType, User } from '../types';
 
 export interface MemeReactionResponse {
   message: string;
@@ -8,16 +8,30 @@ export interface MemeReactionResponse {
     likes: number;
     dislikes: number;
     score: number;
-    myReaction: 'like' | 'dislike' | null;
+    myReaction: ReactionType | null;
   };
 }
 
-interface ApiMeme extends Omit<Meme, 'id' | 'author'> {
-  _id: string;
-  author: string | {
-    _id: string;
-    username: string;
-  };
+/** Autor tal como llega del backend: un id/texto, o un objeto con `_id` o `id`. */
+type ApiAuthor =
+  | string
+  | {
+      _id?: string;
+      id?: string;
+      username: string;
+      role?: User['role'];
+      score?: number;
+      avatarUrl?: string;
+    };
+
+/**
+ * Meme tal como llega del backend. Según el endpoint viene con `_id` (GET /memes,
+ * /users/:id/memes, POST /memes) o con `id` (/moderation/memes, PATCH status).
+ */
+export interface ApiMeme extends Omit<Meme, 'id' | 'author'> {
+  _id?: string;
+  id?: string;
+  author: ApiAuthor | null;
 }
 
 export interface RankingUser {
@@ -27,20 +41,40 @@ export interface RankingUser {
   avatarUrl?: string;
 }
 
-function normalizeMeme({ _id, author, ...meme }: ApiMeme): Meme {
+function normalizeAuthor(author: ApiAuthor | null): User | string {
+  if (author === null) return 'Usuario eliminado';
+  if (typeof author === 'string') return author;
   return {
-    ...meme,
-    id: _id,
-    author:
-      typeof author === 'string'
-        ? author
-        : {
-          id: author._id,
-          username: author.username,
-          role: 'user',
-          score: 0,
-        },
+    id: author.id ?? author._id ?? author.username,
+    username: author.username,
+    role: author.role ?? 'user',
+    score: author.score ?? 0,
+    avatarUrl: author.avatarUrl,
   };
+}
+
+/**
+ * Convierte cualquier respuesta de meme del backend al tipo `Meme` del frontend.
+ *
+ * Los campos opcionales que el endpoint no envía quedan fuera del objeto (no en `null`).
+ * Por ejemplo, GET /users/:id/memes y PATCH /memes/:id/status no traen `myReaction`:
+ * si se pusiera `null`, al mezclarlo en el store se borraría el voto que ya conocíamos.
+ */
+export function normalizeMeme(meme: ApiMeme): Meme {
+  const normalized: Meme = {
+    id: String(meme.id ?? meme._id),
+    title: meme.title,
+    imageUrl: meme.imageUrl,
+    author: normalizeAuthor(meme.author),
+    status: meme.status,
+    likes: meme.likes ?? 0,
+    dislikes: meme.dislikes ?? 0,
+    score: meme.score ?? 0,
+  };
+  if (meme.createdAt !== undefined) normalized.createdAt = meme.createdAt;
+  if (meme.tags !== undefined) normalized.tags = meme.tags;
+  if (meme.myReaction !== undefined) normalized.myReaction = meme.myReaction;
+  return normalized;
 }
 
 // Obtener los memes aprobados
@@ -56,12 +90,45 @@ export const getMemeById = async (memeId: string) => {
   return normalizeMeme(meme);
 };
 
+// Publicar un meme (título + URL o archivo). Siempre nace como 'pending'.
+export const createMeme = async (data: FormData) => {
+  const meme = await apiFetch<ApiMeme>('/memes', { method: 'POST', body: data });
+  return normalizeMeme(meme);
+};
+
+// Eliminar un meme (solo su autor o un moderador).
+export const deleteMeme = async (memeId: string) => {
+  await apiFetch<void>(`/memes/${encodeURIComponent(memeId)}`, { method: 'DELETE' });
+};
+
 // Reaccionar a un meme (Like / Dislike). Requiere sesión.
-export const reactToMeme = async (memeId: string, type: 'like' | 'dislike') => {
-  return apiFetch<MemeReactionResponse>(`/memes/${memeId}/react`, {
+export const reactToMeme = async (memeId: string, type: ReactionType) => {
+  return apiFetch<MemeReactionResponse>(`/memes/${encodeURIComponent(memeId)}/react`, {
     method: 'POST',
     body: { type },
   });
+};
+
+// Memes de un usuario. El backend incluye los pendientes/rechazados solo si
+// quien pide es el propio usuario o un moderador.
+export const getUserMemes = async (userId: string) => {
+  const memes = await apiFetch<ApiMeme[]>(`/users/${encodeURIComponent(userId)}/memes`);
+  return memes.map(normalizeMeme);
+};
+
+// Memes pendientes de moderación (solo moderadores).
+export const getPendingMemes = async () => {
+  const memes = await apiFetch<ApiMeme[]>('/moderation/memes');
+  return memes.map(normalizeMeme);
+};
+
+// Aprobar o rechazar un meme (solo moderadores).
+export const updateMemeStatus = async (memeId: string, status: Exclude<MemeStatus, 'pending'>) => {
+  const meme = await apiFetch<ApiMeme>(`/memes/${encodeURIComponent(memeId)}/status`, {
+    method: 'PATCH',
+    body: { status },
+  });
+  return normalizeMeme(meme);
 };
 
 // Obtener los mejores 10 memes

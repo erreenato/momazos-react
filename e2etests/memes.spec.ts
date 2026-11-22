@@ -13,9 +13,9 @@ import {
 /**
  * Publicar (SubirPost.tsx), votar y comentar.
  *
- * Votar y comentar se prueban desde el feed de inicio (HomeView → MemeFeed), que ya usa datos
- * reales de la API. La página /meme/:id todavía lee memeStore (mock), por eso no se usa aquí:
- * ver navegacion.spec.ts.
+ * Votar y comentar se prueban desde el feed de inicio (HomeView → MemeFeed). Tanto el feed
+ * como la página /meme/:id usan datos reales de la API a través del store global de memes
+ * (stores/memeStore.ts); la navegación a /meme/:id se prueba en navegacion.spec.ts.
  */
 
 test.describe('Publicar un meme', () => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { apiFetch } from '../api/client';
+import { selectUser, useAuthStore } from '../stores/authStore';
+import { useMemeStore } from '../stores/memeStore';
 import {
   Alert,
   Box,
@@ -26,6 +27,8 @@ export function SubirPost() {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const publishMeme = useMemeStore((state) => state.publishMeme);
+  const user = useAuthStore(selectUser);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     setFile(event.target.files?.[0] ?? null);
@@ -71,10 +74,8 @@ export function SubirPost() {
     setSubmitted(false);
 
     try {
-      await apiFetch('/memes', {
-        method: 'POST',
-        body: formData,
-      });
+      // El store agrega el meme (pendiente) a "mis memes" sin tener que recargar el perfil.
+      await publishMeme(formData, user);
 
       setTitle('');
       setImageUrl('');
@@ -82,11 +83,7 @@ export function SubirPost() {
       setFileKey((key) => key + 1);
       setSubmitted(true);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'No se pudo publicar el meme.',
-      );
+      setError((err as { message?: string }).message ?? 'No se pudo publicar el meme.');
     } finally {
       setPublishing(false);
     }

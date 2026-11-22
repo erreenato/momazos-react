@@ -1,4 +1,5 @@
 import { clearSession, readSession } from '../auth/session';
+import type { StoreError } from '../types';
 
 export const API_URL: string =
   import.meta.env.VITE_API_URL ?? '/api';
@@ -24,8 +25,17 @@ interface RequestOptions {
 
 const AUTH_PAGES = ['/login', '/registro'];
 
+// El store de autenticación se registra aquí para enterarse de un 401 y limpiar
+// el usuario en memoria (así el estado global nunca contradice al servidor).
+let unauthorizedHandler: (() => void) | null = null;
+
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
+}
+
 function redirectToLogin(): void {
   clearSession();
+  unauthorizedHandler?.();
   if (!AUTH_PAGES.includes(window.location.pathname)) {
     window.location.assign('/login');
   }
@@ -61,7 +71,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const headers: Record<string, string> = {};
   if (body !== undefined && !(body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
-  } const csrfToken = readSession()?.csrfToken;
+  }
+  const csrfToken = readSession()?.csrfToken;
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
   const response = await fetch(`${API_URL}${path}`, {
@@ -92,4 +103,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { data } = await apiRequest<T>(path, options);
   return data;
+}
+
+/** Convierte cualquier error en el formato común de los stores. */
+export function toStoreError(error: unknown, fallback: string): StoreError {
+  if (error instanceof ApiError) return { message: error.message, status: error.status };
+  if (error instanceof Error && error.message) return { message: error.message };
+  return { message: fallback };
 }

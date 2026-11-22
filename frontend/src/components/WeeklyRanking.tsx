@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Avatar,
@@ -15,8 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowDropUpRoundedIcon from '@mui/icons-material/ArrowDropUpRounded';
-import { getTopMemes } from '../api/meme';
-import type { Meme, User } from '../types';
+import { useMemeStore, useRanking } from '../stores/memeStore';
+import type { User } from '../types';
 import { EmptyState } from './ui/EmptyState';
 import { LoadingState } from './ui/LoadingState';
 import './WeeklyRanking.css';
@@ -27,37 +27,20 @@ function authorName(author: User | string): string {
   return typeof author === 'string' ? author : author.username;
 }
 
-export function WeeklyRanking({ memes }: { memes?: Meme[] }) {
-  const [loaded, setLoaded] = useState<Meme[]>(memes ?? []);
-  const [loading, setLoading] = useState(memes === undefined);
+export function WeeklyRanking() {
+  // Usa el mismo ranking del store que /ranking: si se vota un meme, se actualiza aquí también.
+  const { memes, loaded, error } = useRanking('top');
+  const fetchRanking = useMemeStore((state) => state.fetchRanking);
+  const generation = useMemeStore((state) => state.generation);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (memes !== undefined) {
-      setLoaded(memes);
-      setLoading(false);
-      return;
-    }
+    void fetchRanking('top');
+  }, [fetchRanking, generation]);
 
-    let cancelled = false;
+  const loading = !loaded && !error;
 
-    getTopMemes()
-      .then((data) => {
-        if (!cancelled) setLoaded(data);
-      })
-      .catch((error) => {
-        console.error('Error al cargar ranking lateral:', error);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [memes]);
-
-  const ranked = [...loaded]
+  const ranked = [...memes]
     .filter((meme) => meme.status === 'approved')
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
