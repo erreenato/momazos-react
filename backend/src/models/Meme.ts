@@ -75,4 +75,4 @@ memeSchema.methods.updateScore = async function (this: IMeme): Promise<number> {
   return this.score;
 };
 
-export const Meme = model<IMeme>('Meme', memeSchema);
+export const Meme = model<IMeme>('Meme', memeSchema, 'momazos_memes');

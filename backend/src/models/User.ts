@@ -68,4 +68,4 @@ userSchema.methods.updateScore = async function (this: IUser): Promise<number> {
   return newScore;
 };
 
-export const User = model<IUser>('User', userSchema);
+export const User = model<IUser>('User', userSchema, 'momazos_users');

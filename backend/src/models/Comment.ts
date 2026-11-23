@@ -60,4 +60,4 @@ commentSchema.methods.updateScore = async function (this: CommentDocument): Prom
 };
 
 // 7. Exportación del Modelo estrictamente tipado
-export const Comment = model<IComment, CommentModel>('Comment', commentSchema);
+export const Comment = model<IComment, CommentModel>('Comment', commentSchema, 'momazos_comments');
