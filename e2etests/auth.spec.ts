@@ -21,7 +21,7 @@ test.describe('Registro', () => {
     await page.goto('/registro');
     await page.getByLabel('Nombre de usuario').fill(user.username);
     await page.getByLabel('Email').fill(user.email);
-    await page.getByLabel('Contraseña', { exact: true }).fill(user.password);
+    await page.locator('#register-password').fill(user.password);
     await page.getByLabel('Repite la contraseña').fill(user.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
 
@@ -37,11 +37,11 @@ test.describe('Registro', () => {
     await page.goto('/registro');
     await page.getByLabel('Nombre de usuario').fill(user.username);
     await page.getByLabel('Email').fill(user.email);
-    await page.getByLabel('Contraseña', { exact: true }).fill(user.password);
+    await page.locator('#register-password').fill(user.password);
     await page.getByLabel('Repite la contraseña').fill('otra-contraseña-123');
     await page.getByRole('button', { name: 'Registrarme' }).click();
 
-    await expect(page.locator('.auth-form-error')).toHaveText('Las contraseñas no coinciden');
+    await expect(page.getByRole('alert')).toHaveText('Las contraseñas no coinciden');
     await expect(page).toHaveURL('/registro');
     expect(await readStoredSession(page)).toBeNull();
   });
@@ -53,11 +53,11 @@ test.describe('Registro', () => {
     await page.goto('/registro');
     await page.getByLabel('Nombre de usuario').fill(other.username);
     await page.getByLabel('Email').fill(existing.email);
-    await page.getByLabel('Contraseña', { exact: true }).fill(other.password);
+    await page.locator('#register-password').fill(other.password);
     await page.getByLabel('Repite la contraseña').fill(other.password);
     await page.getByRole('button', { name: 'Registrarme' }).click();
 
-    await expect(page.locator('.auth-form-error')).toBeVisible();
+    await expect(page.getByRole('alert')).toBeVisible();
     await expect(page).toHaveURL('/registro');
     expect(await readStoredSession(page)).toBeNull();
   });
@@ -85,7 +85,7 @@ test.describe('Inicio de sesión', () => {
     await page.getByLabel('Contraseña').fill('contraseña-incorrecta');
     await page.getByRole('button', { name: 'Entrar' }).click();
 
-    await expect(page.locator('.auth-form-error')).toBeVisible();
+    await expect(page.getByRole('alert')).toBeVisible();
     await expect(page).toHaveURL('/login');
     expect(await readStoredSession(page)).toBeNull();
   });

@@ -37,10 +37,10 @@ test.describe('Publicar un meme', () => {
 
     await navLink(page, 'Subir Meme').click();
     await page.getByLabel('Título').fill(uniqueTitle());
-    await page.getByLabel('Desde mi computador').check();
+    await page.getByRole('button', { name: 'Desde mi computador' }).click();
     await page.getByRole('button', { name: 'Publicar' }).click();
 
-    await expect(page.locator('.subir-post-error')).toHaveText('Selecciona una imagen.');
+    await expect(page.getByRole('alert')).toHaveText('Selecciona una imagen.');
     await expect(page.getByText('¡Tu momo quedó pendiente de moderación!')).toHaveCount(0);
   });
 
@@ -49,10 +49,10 @@ test.describe('Publicar un meme', () => {
     await loginViaUi(page, user);
 
     await navLink(page, 'Subir Meme').click();
-    await page.getByLabel('Desde mi computador').check();
-    await page.getByLabel('Archivo').setInputFiles(fixturePath('meme.png'));
+    await page.getByRole('button', { name: 'Desde mi computador' }).click();
+    await page.locator('#subir-archivo').setInputFiles(fixturePath('meme.png'));
 
-    await expect(page.locator('.subir-post-filename')).toHaveText('meme.png');
+    await expect(page.getByText('meme.png', { exact: true })).toBeVisible();
   });
 });
 
@@ -63,9 +63,9 @@ test.describe('Votar y comentar (feed de inicio)', () => {
     await page.goto('/');
     const card = memeCard(page, meme.title);
 
-    await expect(card.locator('.meme-auth-hint')).toBeVisible();
+    await expect(card.getByText('Inicia sesión para reaccionar', { exact: true })).toBeVisible();
 
-    await card.locator('button.meme-pill.like').click();
+    await card.getByRole('button', { name: 'Me gusta', exact: true }).click();
     await expect(card.getByRole('alert')).toHaveText('Inicia sesión para reaccionar.');
 
     await card.locator('.meme-card-open').click();
@@ -77,7 +77,7 @@ test.describe('Votar y comentar (feed de inicio)', () => {
     const [meme] = await getApprovedMemes(request);
     await loginViaUi(page, user);
 
-    const like = memeCard(page, meme.title).locator('button.meme-pill.like');
+    const like = memeCard(page, meme.title).getByRole('button', { name: 'Me gusta', exact: true });
     const before = Number((await like.innerText()).trim());
 
     await like.click();

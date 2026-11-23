@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ role }: ProtectedRouteProps) {
-  const { user, loading } = useAuth(); // Nota: verifica si en useAuth se llama 'loading' o 'isLoading'
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   // 1. Esperar mientras se restaura la sesión tras F5
@@ -30,7 +30,7 @@ export function ProtectedRoute({ role }: ProtectedRouteProps) {
   );
 }
 
-  // 3. Si la ruta exige rol de moderador y el usuario no lo tiene, vuelve al inicio
+  // 3. Si la ruta exige rol de moderador y el usuario no lo tiene, muestra un aviso
   if (role && user.role !== role) {
     return (
       <Alert severity="warning" sx={{ m: 3, width: '100%', maxWidth: 520 }}>

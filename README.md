@@ -139,6 +139,7 @@ Desde la raíz del repositorio:
 | `npm run build:frontend` | Compila solamente el frontend. |
 | `npm run build:backend` | Compila solamente el backend. |
 | `npm test --prefix backend` | Ejecuta las pruebas del backend. |
+| `npm run test:e2e` | Ejecuta las pruebas E2E con Playwright (ver [`e2etests/README.md`](./e2etests/README.md)). |
 
 ## API
 

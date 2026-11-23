@@ -38,7 +38,7 @@ test.describe('Rutas públicas @readonly', () => {
     await navLink(page, 'Ranking Memes').click();
     await expect(page).toHaveURL('/ranking');
 
-    await navLink(page, 'Anti-Ranking').click();
+    await page.getByRole('button', { name: 'Ver Anti-Ranking' }).click();
     await expect(page).toHaveURL('/anti-ranking');
   });
 
@@ -87,9 +87,10 @@ test.describe('Rutas protegidas sin sesión @readonly', () => {
 });
 
 test.describe('Rutas inexistentes @readonly', () => {
-  test('una ruta desconocida redirige a la página principal', async ({ page }) => {
+  test('una ruta desconocida muestra la página 404', async ({ page }) => {
     await page.goto('/esta-ruta-no-existe');
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL('/esta-ruta-no-existe');
+    await expect(page.getByRole('heading', { name: '404 - Página no encontrada' })).toBeVisible();
   });
 });
 
@@ -98,7 +99,7 @@ test.describe('Historial y recarga @readonly', () => {
     await page.goto('/');
     await navLink(page, 'Ranking Memes').click();
     await expect(page).toHaveURL('/ranking');
-    await navLink(page, 'Anti-Ranking').click();
+    await page.getByRole('button', { name: 'Ver Anti-Ranking' }).click();
     await expect(page).toHaveURL('/anti-ranking');
 
     await page.goBack();

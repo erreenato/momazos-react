@@ -26,7 +26,7 @@ test.describe('Moderación', () => {
       await expect(page).toHaveURL('/moderacion');
       await expect(page.getByRole('heading', { name: 'Moderación', level: 1 })).toBeVisible();
       // El seed deja 3 memes pendientes.
-      await expect(page.locator('.moderation-card').first()).toBeVisible();
+      await expect(page.getByRole('table', { name: 'Memes pendientes de moderación' }).locator('tbody tr').first()).toBeVisible();
     } finally {
       await context.close();
     }
@@ -42,7 +42,7 @@ test.describe('Moderación', () => {
     try {
       await navLink(moderator, 'Moderación').click();
 
-      const card = moderator.locator('.moderation-card').filter({ hasText: title });
+      const card = moderator.getByRole('table', { name: 'Memes pendientes de moderación' }).locator('tbody tr').filter({ hasText: title });
       await expect(card).toHaveCount(1);
       await expect(card).toContainText(user.username);
 
@@ -72,10 +72,12 @@ test.describe('Moderación', () => {
     try {
       await navLink(moderator, 'Moderación').click();
 
-      const card = moderator.locator('.moderation-card').filter({ hasText: title });
+      const card = moderator.getByRole('table', { name: 'Memes pendientes de moderación' }).locator('tbody tr').filter({ hasText: title });
       await expect(card).toHaveCount(1);
 
       await card.getByRole('button', { name: 'Rechazar' }).click();
+      // Rechazar pide confirmación en un ConfirmDialog.
+      await moderator.getByRole('dialog').getByRole('button', { name: 'Rechazar' }).click();
 
       await expect(moderator.getByText('Meme rechazado correctamente.')).toBeVisible();
       await expect(card).toHaveCount(0);

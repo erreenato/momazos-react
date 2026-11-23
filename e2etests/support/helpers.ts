@@ -101,8 +101,8 @@ export function fixturePath(fileName: string): string {
 export async function publishMemeViaUi(page: Page, title: string): Promise<void> {
   await navLink(page, 'Subir Meme').click();
   await page.getByLabel('Título').fill(title);
-  await page.getByLabel('Desde mi computador').check();
-  await page.getByLabel('Archivo').setInputFiles(fixturePath('meme.png'));
+  await page.getByRole('button', { name: 'Desde mi computador' }).click();
+  await page.locator('#subir-archivo').setInputFiles(fixturePath('meme.png'));
   await page.getByRole('button', { name: 'Publicar' }).click();
   await expect(page.getByText('¡Tu momo quedó pendiente de moderación!')).toBeVisible();
 }
